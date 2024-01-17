@@ -9,7 +9,7 @@ pub enum NovaObject {
     None,
     Bool(bool),
     Number(BaseNumber),
-    String(String),
+    String(Box<String>),
 }
 
 #[derive(Debug, Clone, Copy)]

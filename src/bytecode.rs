@@ -4,8 +4,6 @@ pub enum OpCode {
     Move,
     /// Load a constant into a register
     LoadK,
-    /// Load a boolean into a register
-    //LoadBool,
     /// Load nil values into a range of registers
     LoadNil,
     /// Store variable in memory
@@ -38,6 +36,8 @@ pub enum OpCode {
     Len,
     /// Unconditional Jump
     Jump,
+    /// Print value in register
+    Print,
     /// Call a function
     Call,
     /// While loop

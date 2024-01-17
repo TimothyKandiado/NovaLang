@@ -1,40 +1,42 @@
-use std::mem::size_of_val;
-
-use nova::{machine::VirtualMachine, program::Program, object::NovaObject, instruction::InstructionBuilder, bytecode::OpCode, register::RegisterID};
+use nova::{machine::VirtualMachine, program::Program, object::NovaObject, instruction::InstructionBuilder, bytecode::OpCode};
 
 fn main() {
     let mut vm = VirtualMachine::new();
     let program = get_program();
     vm.load_program(program);
     vm.start_vm(0);
-    println!("size of vm = {} bytes", size_of_val(&vm))
+
+    #[cfg(feature = "debug")]
+    print_mem_usage(&vm);
+}
+
+#[cfg(feature = "debug")]
+fn print_mem_usage(vm: &VirtualMachine) {
+    use std::mem::size_of_val;
+
+    let stack = size_of_val(vm);
+    println!("vm stack usage = {} bytes", stack)
 }
 
 fn get_program() -> Program {
-    let immutables = vec![NovaObject::Number(10.0), NovaObject::Number(15.0)];
-    let instruction1 = InstructionBuilder::new()
-        .add_opcode(OpCode::LoadK)
-        .add_destination_register(RegisterID::R0 as u32)
-        .add_immutable_address_small(0)
-        .build();
-
-    let instruction2 = InstructionBuilder::new()
-        .add_opcode(OpCode::LoadK)
-        .add_destination_register(RegisterID::R1 as u32)
-        .add_immutable_address_small(1)
-        .build();
-
-    let instruction3 = InstructionBuilder::new()
-        .add_opcode(OpCode::Add)
-        .add_destination_register(RegisterID::R0 as u32)
-        .add_source_register_1(RegisterID::R0 as u32)
-        .add_source_register_2(RegisterID::R1 as u32)
-        .build();
-
-    let instruction4 = InstructionBuilder::new()
-        .add_opcode(OpCode::Halt)
-        .build();
-
-    let instructions = vec![instruction1, instruction2, instruction3, instruction4];
+    let immutables = vec![
+        NovaObject::Number(10.0), 
+        NovaObject::Number(15.0), 
+        NovaObject::String(Box::new("I am Timothy".to_string()))
+        ];
+    
+    let instructions = vec![
+        InstructionBuilder::new_load_constant_instruction(0, 0),
+        InstructionBuilder::new_load_constant_instruction(1, 1),
+        InstructionBuilder::new_binary_op_instruction(OpCode::Add, 0, 0, 1),
+        InstructionBuilder::new_print_instruction(0, true),
+        InstructionBuilder::new_binary_op_instruction(OpCode::Mod, 0, 0, 1),
+        InstructionBuilder::new_print_instruction(0, true),
+        InstructionBuilder::new_load_constant_instruction(2, 2),
+        InstructionBuilder::new_print_instruction(2, true),
+        InstructionBuilder::new_binary_op_instruction(OpCode::Add, 0, 0, 2),
+        InstructionBuilder::new_print_instruction(0, true),
+        InstructionBuilder::new_halt_instruction(),
+    ];
     Program {instructions, immutables}
 }

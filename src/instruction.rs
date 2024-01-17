@@ -15,9 +15,9 @@ impl InstructionBuilder {
         self.instruction
     }
 
-    pub fn new_add_instruction(destination: Instruction, source1: Instruction, source2: Instruction) -> Instruction {
+    pub fn new_binary_op_instruction(op: OpCode, destination: Instruction, source1: Instruction, source2: Instruction) -> Instruction {
         InstructionBuilder::new()
-            .add_opcode(OpCode::Add)
+            .add_opcode(op)
             .add_destination_register(destination)
             .add_source_register_1(source1)
             .add_source_register_2(source2)
@@ -28,7 +28,15 @@ impl InstructionBuilder {
         InstructionBuilder::new()
             .add_opcode(OpCode::LoadK)
             .add_destination_register(destination)
-            .add_immutable_address_small(constant_index)
+            .add_address_small(constant_index)
+            .build()
+    }
+
+    pub fn new_print_instruction(source: Instruction, newline: bool) -> Instruction {
+        InstructionBuilder::new()
+            .add_opcode(OpCode::Print)
+            .add_destination_register(newline as Instruction)
+            .add_source_register_1(source)
             .build()
     }
 
@@ -62,7 +70,7 @@ impl InstructionBuilder {
         self
     }
 
-    pub fn add_immutable_address_small(mut self, address: Instruction) -> Self {
+    pub fn add_address_small(mut self, address: Instruction) -> Self {
         self.instruction += address;
         self
     }
@@ -150,7 +158,7 @@ mod instruction_builder_tests {
         let r_immutable = 20u32;
 
         let instruction = InstructionBuilder::new()
-            .add_immutable_address_small(r_immutable)
+            .add_address_small(r_immutable)
             .build();
 
         let d_immutable = InstructionDecoder::decode_immutable_address_small(instruction);
