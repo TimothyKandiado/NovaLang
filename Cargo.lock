@@ -10,7 +10,7 @@ checksum = "2145869435ace5ea6ea3d35f59be559317ec9a0d04e1812d5f185a87b6d36f1a"
 
 [[package]]
 name = "nova"
-version = "0.1.0"
+version = "0.2.0"
 dependencies = [
  "memuse",
 ]
