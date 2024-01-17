@@ -1,9 +1,9 @@
 #[derive(Debug, Clone, Copy)]
 pub enum OpCode {
-    /// Copy a value between registers
+    /// Copy a value between registers(MOVE A <- B)
     Move,
-    /// Load a constant into a register
-    LoadK,
+    /// Load a constant into a register (LOAD A <- K)
+    LoadK, 
     /// Load nil values into a range of registers
     LoadNil,
     /// Store variable in memory
@@ -32,9 +32,11 @@ pub enum OpCode {
     And,
     /// Logical Or
     Or,
-    /// Length
-    Len,
-    /// Unconditional Jump
+    /// Less than Test (Jump if false) (A < B) ? Skip Jump : Jump
+    LT,
+    /// Less than or equal Test (Jump if false) (A < B) ? Skip Jump : Jump
+    LE,
+    /// Unconditional Jump with Offset
     Jump,
     /// Print value in register
     Print,

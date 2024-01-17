@@ -96,6 +96,15 @@ impl VirtualMachine {
                 self.move_register(instruction);
             }
 
+            // Control flow
+            x if x == OpCode::LT as u32 => {
+                self.less_or_jump(instruction);
+            }
+
+            x if x == OpCode::Jump as u32 => {
+                self.jump(instruction);
+            }
+
             // IO
             x if x == OpCode::Print as u32 => {
                 self.print(instruction);
@@ -109,7 +118,7 @@ impl VirtualMachine {
         let destination = InstructionDecoder::decode_destination_register(instruction);
         let source = InstructionDecoder::decode_source_register_1(instruction);
 
-        let value = self.get_value_from_register(source);
+        let value = self.get_register(source);
         self.set_value_in_register(destination, value);
     }
 
@@ -118,7 +127,7 @@ impl VirtualMachine {
         let source = InstructionDecoder::decode_source_register_1(instruction);
         let newline = InstructionDecoder::decode_destination_register(instruction);
 
-        let register = self.get_value_from_register(source);
+        let register = self.get_register(source);
         
         match register.kind {
             ObjectKind::Float32 => {print!("{}", f32::from_bits(register.value))}
@@ -140,8 +149,8 @@ impl VirtualMachine {
         let source_register_1 = InstructionDecoder::decode_source_register_1(instruction);
         let source_register_2 = InstructionDecoder::decode_source_register_2(instruction);
 
-        let register_1 = self.get_value_from_register(source_register_1);
-        let register_2 = self.get_value_from_register(source_register_2);
+        let register_1 = self.get_register(source_register_1);
+        let register_2 = self.get_register(source_register_2);
 
         if let (ObjectKind::Float32, ObjectKind::Float32) = (register_1.kind, register_2.kind) {
             let value_1 = f32::from_bits(register_1.value);
@@ -198,8 +207,8 @@ impl VirtualMachine {
         let source_register_1 = InstructionDecoder::decode_source_register_1(instruction);
         let source_register_2 = InstructionDecoder::decode_source_register_2(instruction);
 
-        let register_1 = self.get_value_from_register(source_register_1);
-        let register_2 = self.get_value_from_register(source_register_2);
+        let register_1 = self.get_register(source_register_1);
+        let register_2 = self.get_register(source_register_2);
 
         if let (ObjectKind::Float32, ObjectKind::Float32) = (register_1.kind, register_2.kind) {
             let value_1 = f32::from_bits(register_1.value);
@@ -222,8 +231,8 @@ impl VirtualMachine {
         let source_register_1 = InstructionDecoder::decode_source_register_1(instruction);
         let source_register_2 = InstructionDecoder::decode_source_register_2(instruction);
 
-        let register_1 = self.get_value_from_register(source_register_1);
-        let register_2 = self.get_value_from_register(source_register_2);
+        let register_1 = self.get_register(source_register_1);
+        let register_2 = self.get_register(source_register_2);
 
         if let (ObjectKind::Float32, ObjectKind::Float32) = (register_1.kind, register_2.kind) {
             let value_1 = f32::from_bits(register_1.value);
@@ -246,8 +255,8 @@ impl VirtualMachine {
         let source_register_1 = InstructionDecoder::decode_source_register_1(instruction);
         let source_register_2 = InstructionDecoder::decode_source_register_2(instruction);
 
-        let register_1 = self.get_value_from_register(source_register_1);
-        let register_2 = self.get_value_from_register(source_register_2);
+        let register_1 = self.get_register(source_register_1);
+        let register_2 = self.get_register(source_register_2);
 
         if let (ObjectKind::Float32, ObjectKind::Float32) = (register_1.kind, register_2.kind) {
             let value_1 = f32::from_bits(register_1.value);
@@ -270,8 +279,8 @@ impl VirtualMachine {
         let source_register_1 = InstructionDecoder::decode_source_register_1(instruction);
         let source_register_2 = InstructionDecoder::decode_source_register_2(instruction);
 
-        let register_1 = self.get_value_from_register(source_register_1);
-        let register_2 = self.get_value_from_register(source_register_2);
+        let register_1 = self.get_register(source_register_1);
+        let register_2 = self.get_register(source_register_2);
 
         if let (ObjectKind::Float32, ObjectKind::Float32) = (register_1.kind, register_2.kind) {
             let value_1 = f32::from_bits(register_1.value);
@@ -294,8 +303,8 @@ impl VirtualMachine {
         let source_register_1 = InstructionDecoder::decode_source_register_1(instruction);
         let source_register_2 = InstructionDecoder::decode_source_register_2(instruction);
 
-        let register_1 = self.get_value_from_register(source_register_1);
-        let register_2 = self.get_value_from_register(source_register_2);
+        let register_1 = self.get_register(source_register_1);
+        let register_2 = self.get_register(source_register_2);
 
         if let (ObjectKind::Float32, ObjectKind::Float32) = (register_1.kind, register_2.kind) {
             let value_1 = f32::from_bits(register_1.value) as i32;
@@ -312,6 +321,39 @@ impl VirtualMachine {
         self.emit_error_with_message(&format!("cannot find modulus {:?} by {:?}", register_1.kind, register_2.kind))
     }
 
+    #[inline(always)]
+    /// compares if first register is less than second register, then jumps if comparison false
+    fn less_or_jump(&mut self, instruction: Instruction) {
+        let source1 = InstructionDecoder::decode_source_register_1(instruction);
+        let source2 = InstructionDecoder::decode_source_register_2(instruction);
+
+        let register1 = self.get_register(source1);
+        let register2 = self.get_register(source2);
+
+        let less = self.compare_registers(OpCode::LT, register1, register2);
+        if self.check_error() {
+            return;
+        }
+
+        let next = self.get_next_instruction();
+
+        if !less {
+            self.jump(next)
+        }
+    }
+
+    #[inline(always)]
+    fn jump(&mut self, instruction: Instruction) {
+        let offset = InstructionDecoder::decode_immutable_address_small(instruction);
+        let direction = InstructionDecoder::decode_destination_register(instruction);
+        if direction == 0 { 
+            self.registers[RegisterID::RPC as usize].value -= offset; // backward jump
+        }
+        else {
+            self.registers[RegisterID::RPC as usize].value += offset; // forward jump
+        }
+    }
+    
     #[inline(always)]
     fn load_constant_to_register(&mut self, instruction: Instruction) {
         let destination_register = InstructionDecoder::decode_destination_register(instruction);
@@ -366,7 +408,7 @@ impl VirtualMachine {
 
     #[inline(always)]
     fn check_error(&self) -> bool {
-        let register = self.get_value_from_register(RegisterID::RERR as Instruction);
+        let register = self.get_register(RegisterID::RERR as Instruction);
 
         if let ObjectKind::MemAddress = register.kind {
             let address = register.value;
@@ -398,7 +440,7 @@ impl VirtualMachine {
     }
 
     #[inline(always)]
-    fn get_value_from_register(&self, register_id: Instruction) -> Register {
+    fn get_register(&self, register_id: Instruction) -> Register {
         self.registers[register_id as usize]
     }
 
@@ -410,6 +452,63 @@ impl VirtualMachine {
     #[inline(always)]
     fn get_object_from_memory(&self, address: Instruction) -> &NovaObject {
         &self.memory[address as usize]
+    }
+
+    #[inline(always)]
+    fn compare_registers(&mut self, op: OpCode, first: Register, second: Register) -> bool {
+        match op {
+            OpCode::LT => {
+                if first.kind.is_none() && second.kind.is_float32() {
+                    return true
+                }
+
+                if (first.kind.is_none() || first.kind.is_float32()) && second.kind.is_mem_address() {
+                    return true
+                }
+
+                if first.kind.is_float32() && second.kind.is_float32() {
+                    let first = f32::from_bits(first.value);
+                    let second = f32::from_bits(second.value);
+                    return first < second
+                }
+
+                if first.kind.is_mem_address() && second.kind.is_mem_address() {
+                    let first = self.get_object_from_memory(first.value);
+                    let second = self.get_object_from_memory(second.value);
+
+                    return first < second;
+                }
+            }
+
+            OpCode::LE => {
+                if first.kind.is_none() && second.kind.is_float32() {
+                    return true
+                }
+
+                if (first.kind.is_none() || first.kind.is_float32()) && second.kind.is_mem_address() {
+                    return true
+                }
+
+                if first.kind.is_float32() && second.kind.is_float32() {
+                    let first = f32::from_bits(first.value);
+                    let second = f32::from_bits(second.value);
+                    return first <= second
+                }
+
+                if first.kind.is_mem_address() && second.kind.is_mem_address() {
+                    let first = self.get_object_from_memory(first.value);
+                    let second = self.get_object_from_memory(second.value);
+
+                    return first <= second;
+                }
+            }
+
+            _ => {
+                self.emit_error_with_message(&format!("Undefined comparison operator {:#x}", op as Instruction));
+            }
+        }
+
+        false
     }
 
     #[inline(always)]
@@ -431,7 +530,7 @@ impl VirtualMachine {
     fn print_register_values(&self) {
         println!("{:=^30}", "Registers");
         for register_index in 0..RegisterID::RMax as usize + 1 {
-            let register = self.get_value_from_register(register_index as u32);
+            let register = self.get_register(register_index as u32);
             println!("==> R{:<2}: {}", register_index, register);
         }
         println!("{:=^30}", "");

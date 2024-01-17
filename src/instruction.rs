@@ -24,11 +24,35 @@ impl InstructionBuilder {
             .build()
     }
 
+    pub fn new_comparison_instruction(op: OpCode, source1: Instruction, source2: Instruction) -> Instruction {
+        InstructionBuilder::new()
+            .add_opcode(op)
+            .add_source_register_1(source1)
+            .add_source_register_2(source2)
+            .build()
+    }
+
+    pub fn new_jump_instruction(offset: Instruction, forward: bool) -> Instruction {
+        InstructionBuilder::new()
+            .add_opcode(OpCode::Jump)
+            .add_destination_register(forward as Instruction)
+            .add_address_small(offset)
+            .build()
+    }
+
     pub fn new_load_constant_instruction(destination: Instruction, constant_index: Instruction) -> Instruction {
         InstructionBuilder::new()
             .add_opcode(OpCode::LoadK)
             .add_destination_register(destination)
             .add_address_small(constant_index)
+            .build()
+    }
+
+    pub fn new_move_instruction(destination: Instruction, source: Instruction) -> Instruction {
+        InstructionBuilder::new()
+            .add_opcode(OpCode::Move)
+            .add_destination_register(destination)
+            .add_source_register_1(source)
             .build()
     }
 
