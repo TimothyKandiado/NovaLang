@@ -17,6 +17,12 @@ pub struct VirtualMachine {
     memory: Vec<NovaObject>,
 }
 
+impl Default for VirtualMachine {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl VirtualMachine {
     pub fn new() -> Self {
         Self {
@@ -198,7 +204,7 @@ impl VirtualMachine {
                 let value1 = value1.to_string();
 
                 let mut new_value = value1;
-                new_value.push_str(&string);
+                new_value.push_str(string);
 
                 let new_object = NovaObject::String(Box::new(new_value));
                 let address = self.load_object_to_memory(new_object);
@@ -452,7 +458,7 @@ impl VirtualMachine {
             return true;
         }
 
-        return false;
+        false
     }
 
     #[inline(always)]
@@ -548,9 +554,8 @@ impl VirtualMachine {
 
     #[inline(always)]
     fn peek_next_instruction(&self) -> Instruction {
-        let instruction =
-            self.instructions[self.registers[RegisterID::RPC as usize].value as usize];
-        instruction
+        
+        self.instructions[self.registers[RegisterID::RPC as usize].value as usize]
     }
 
     #[cfg(feature = "debug")]

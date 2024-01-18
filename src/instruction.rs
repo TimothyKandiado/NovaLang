@@ -6,6 +6,12 @@ pub struct InstructionBuilder {
     instruction: Instruction,
 }
 
+impl Default for InstructionBuilder {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl InstructionBuilder {
     pub fn new() -> Self {
         Self { instruction: 0 }
@@ -114,34 +120,34 @@ pub struct InstructionDecoder {}
 impl InstructionDecoder {
     #[inline(always)]
     pub fn decode_opcode(instruction: Instruction) -> Instruction {
-        let instruction = instruction >> 26;
-        instruction
+        
+        instruction >> 26
     }
 
     #[inline(always)]
     pub fn decode_destination_register(instruction: Instruction) -> Instruction {
         let instruction = instruction >> 22;
-        let instruction = instruction & 0xF;
-        instruction
+        
+        instruction & 0xF
     }
 
     #[inline(always)]
     pub fn decode_source_register_1(instruction: Instruction) -> Instruction {
         let instruction = instruction >> 18;
-        let instruction = instruction & 0xF;
-        instruction
+        
+        instruction & 0xF
     }
 
     #[inline(always)]
     pub fn decode_source_register_2(instruction: Instruction) -> Instruction {
-        let instruction = instruction & 0xF;
-        instruction
+        
+        instruction & 0xF
     }
 
     #[inline(always)]
     pub fn decode_immutable_address_small(instruction: Instruction) -> Instruction {
-        let value = instruction & 0x7FFF;
-        value
+        
+        instruction & 0x7FFF
     }
 
     #[inline(always)]
