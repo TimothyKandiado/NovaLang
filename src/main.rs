@@ -1,4 +1,7 @@
-use nova::{machine::VirtualMachine, program::Program, object::NovaObject, instruction::InstructionBuilder, bytecode::OpCode};
+use nova::{
+    bytecode::OpCode, instruction::InstructionBuilder, machine::VirtualMachine, object::NovaObject,
+    program::Program,
+};
 
 fn main() {
     let mut vm = VirtualMachine::new();
@@ -8,11 +11,8 @@ fn main() {
 }
 
 fn get_program() -> Program {
-    let immutables = vec![
-        NovaObject::Number(1.0), 
-        NovaObject::Number(20.0), 
-        ];
-    
+    let immutables = vec![NovaObject::Number(1.0), NovaObject::Number(20.0)];
+
     let instructions = vec![
         InstructionBuilder::new_load_constant_instruction(0, 0),
         InstructionBuilder::new_load_constant_instruction(1, 1),
@@ -24,5 +24,8 @@ fn get_program() -> Program {
         InstructionBuilder::new_jump_instruction(5, false),
         InstructionBuilder::new_halt_instruction(),
     ];
-    Program {instructions, immutables}
+    Program {
+        instructions,
+        immutables,
+    }
 }

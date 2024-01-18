@@ -15,7 +15,12 @@ impl InstructionBuilder {
         self.instruction
     }
 
-    pub fn new_binary_op_instruction(op: OpCode, destination: Instruction, source1: Instruction, source2: Instruction) -> Instruction {
+    pub fn new_binary_op_instruction(
+        op: OpCode,
+        destination: Instruction,
+        source1: Instruction,
+        source2: Instruction,
+    ) -> Instruction {
         InstructionBuilder::new()
             .add_opcode(op)
             .add_destination_register(destination)
@@ -24,7 +29,11 @@ impl InstructionBuilder {
             .build()
     }
 
-    pub fn new_comparison_instruction(op: OpCode, source1: Instruction, source2: Instruction) -> Instruction {
+    pub fn new_comparison_instruction(
+        op: OpCode,
+        source1: Instruction,
+        source2: Instruction,
+    ) -> Instruction {
         InstructionBuilder::new()
             .add_opcode(op)
             .add_source_register_1(source1)
@@ -40,7 +49,10 @@ impl InstructionBuilder {
             .build()
     }
 
-    pub fn new_load_constant_instruction(destination: Instruction, constant_index: Instruction) -> Instruction {
+    pub fn new_load_constant_instruction(
+        destination: Instruction,
+        constant_index: Instruction,
+    ) -> Instruction {
         InstructionBuilder::new()
             .add_opcode(OpCode::LoadK)
             .add_destination_register(destination)
@@ -65,9 +77,7 @@ impl InstructionBuilder {
     }
 
     pub fn new_halt_instruction() -> Instruction {
-        InstructionBuilder::new()
-            .add_opcode(OpCode::Halt)
-            .build()
+        InstructionBuilder::new().add_opcode(OpCode::Halt).build()
     }
 
     pub fn add_opcode(mut self, opcode: OpCode) -> Self {

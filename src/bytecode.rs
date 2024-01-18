@@ -3,7 +3,7 @@ pub enum OpCode {
     /// Copy a value between registers(MOVE A <- B)
     Move,
     /// Load a constant into a register (LOAD A <- K)
-    LoadK, 
+    LoadK,
     /// Load nil values into a range of registers
     LoadNil,
     /// Store variable in memory

@@ -51,11 +51,13 @@ impl Default for Register {
 impl Display for Register {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         let description = match self.kind {
-            ObjectKind::Float32 => format!("{:<10} : {:>10}", "Float32", f32::from_bits(self.value)),
+            ObjectKind::Float32 => {
+                format!("{:<10} : {:>10}", "Float32", f32::from_bits(self.value))
+            }
             ObjectKind::None => format!("{:<10} : {:>#10x}", "None", self.value),
-            ObjectKind::MemAddress => format!("{:<10} : {:>#10x}", "MemAddress", self.value)
+            ObjectKind::MemAddress => format!("{:<10} : {:>#10x}", "MemAddress", self.value),
         };
 
-        write!(f, "{}",description)
+        write!(f, "{}", description)
     }
 }

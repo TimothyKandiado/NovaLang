@@ -110,7 +110,10 @@ impl VirtualMachine {
                 self.print(instruction);
             }
 
-            _ => self.emit_error_with_message(&format!("Unsupported opcode instruction ({:#x})", opcode)),
+            _ => self.emit_error_with_message(&format!(
+                "Unsupported opcode instruction ({:#x})",
+                opcode
+            )),
         }
     }
     #[inline(always)]
@@ -128,10 +131,14 @@ impl VirtualMachine {
         let newline = InstructionDecoder::decode_destination_register(instruction);
 
         let register = self.get_register(source);
-        
+
         match register.kind {
-            ObjectKind::Float32 => {print!("{}", f32::from_bits(register.value))}
-            ObjectKind::None => {print!("None")}
+            ObjectKind::Float32 => {
+                print!("{}", f32::from_bits(register.value))
+            }
+            ObjectKind::None => {
+                print!("None")
+            }
             ObjectKind::MemAddress => {
                 let address = register.value;
                 let object = self.get_object_from_memory(address);
@@ -178,7 +185,10 @@ impl VirtualMachine {
                 self.load_memory_address_to_register(destination_register, address);
                 return;
             }
-            self.emit_error_with_message(&format!("cannot add {:?} to {:?}", object1, register_2.kind));
+            self.emit_error_with_message(&format!(
+                "cannot add {:?} to {:?}",
+                object1, register_2.kind
+            ));
         }
 
         if let (ObjectKind::Float32, ObjectKind::MemAddress) = (register_1.kind, register_2.kind) {
@@ -195,10 +205,16 @@ impl VirtualMachine {
                 self.load_memory_address_to_register(destination_register, address);
                 return;
             }
-            self.emit_error_with_message(&format!("cannot add {:?} to {:?}", register_1.kind, object2));
+            self.emit_error_with_message(&format!(
+                "cannot add {:?} to {:?}",
+                register_1.kind, object2
+            ));
         }
 
-        self.emit_error_with_message(&format!("cannot add {:?} to {:?}", register_1.kind, register_2.kind))
+        self.emit_error_with_message(&format!(
+            "cannot add {:?} to {:?}",
+            register_1.kind, register_2.kind
+        ))
     }
 
     #[inline(always)]
@@ -222,7 +238,10 @@ impl VirtualMachine {
             return;
         }
 
-        self.emit_error_with_message(&format!("cannot subtract {:?} by {:?}", register_1.kind, register_2.kind))
+        self.emit_error_with_message(&format!(
+            "cannot subtract {:?} by {:?}",
+            register_1.kind, register_2.kind
+        ))
     }
 
     #[inline(always)]
@@ -246,7 +265,10 @@ impl VirtualMachine {
             return;
         }
 
-        self.emit_error_with_message(&format!("cannot multiply {:?} by {:?}", register_1.kind, register_2.kind))
+        self.emit_error_with_message(&format!(
+            "cannot multiply {:?} by {:?}",
+            register_1.kind, register_2.kind
+        ))
     }
 
     #[inline(always)]
@@ -270,7 +292,10 @@ impl VirtualMachine {
             return;
         }
 
-        self.emit_error_with_message(&format!("cannot divide {:?} by {:?}", register_1.kind, register_2.kind))
+        self.emit_error_with_message(&format!(
+            "cannot divide {:?} by {:?}",
+            register_1.kind, register_2.kind
+        ))
     }
 
     #[inline(always)]
@@ -294,7 +319,10 @@ impl VirtualMachine {
             return;
         }
 
-        self.emit_error_with_message(&format!("cannot calculate power of {:?} to {:?}", register_1.kind, register_2.kind))
+        self.emit_error_with_message(&format!(
+            "cannot calculate power of {:?} to {:?}",
+            register_1.kind, register_2.kind
+        ))
     }
 
     #[inline(always)]
@@ -318,7 +346,10 @@ impl VirtualMachine {
             return;
         }
 
-        self.emit_error_with_message(&format!("cannot find modulus {:?} by {:?}", register_1.kind, register_2.kind))
+        self.emit_error_with_message(&format!(
+            "cannot find modulus {:?} by {:?}",
+            register_1.kind, register_2.kind
+        ))
     }
 
     #[inline(always)]
@@ -346,14 +377,13 @@ impl VirtualMachine {
     fn jump(&mut self, instruction: Instruction) {
         let offset = InstructionDecoder::decode_immutable_address_small(instruction);
         let direction = InstructionDecoder::decode_destination_register(instruction);
-        if direction == 0 { 
+        if direction == 0 {
             self.registers[RegisterID::RPC as usize].value -= offset; // backward jump
-        }
-        else {
+        } else {
             self.registers[RegisterID::RPC as usize].value += offset; // forward jump
         }
     }
-    
+
     #[inline(always)]
     fn load_constant_to_register(&mut self, instruction: Instruction) {
         let destination_register = InstructionDecoder::decode_destination_register(instruction);
@@ -414,7 +444,7 @@ impl VirtualMachine {
             let address = register.value;
             let object = &self.memory[address as usize];
             eprint!("Error: ");
-            
+
             if let NovaObject::String(string) = object {
                 eprint!("{}", string)
             }
@@ -459,17 +489,18 @@ impl VirtualMachine {
         match op {
             OpCode::LT => {
                 if first.kind.is_none() && second.kind.is_float32() {
-                    return true
+                    return true;
                 }
 
-                if (first.kind.is_none() || first.kind.is_float32()) && second.kind.is_mem_address() {
-                    return true
+                if (first.kind.is_none() || first.kind.is_float32()) && second.kind.is_mem_address()
+                {
+                    return true;
                 }
 
                 if first.kind.is_float32() && second.kind.is_float32() {
                     let first = f32::from_bits(first.value);
                     let second = f32::from_bits(second.value);
-                    return first < second
+                    return first < second;
                 }
 
                 if first.kind.is_mem_address() && second.kind.is_mem_address() {
@@ -482,17 +513,18 @@ impl VirtualMachine {
 
             OpCode::LE => {
                 if first.kind.is_none() && second.kind.is_float32() {
-                    return true
+                    return true;
                 }
 
-                if (first.kind.is_none() || first.kind.is_float32()) && second.kind.is_mem_address() {
-                    return true
+                if (first.kind.is_none() || first.kind.is_float32()) && second.kind.is_mem_address()
+                {
+                    return true;
                 }
 
                 if first.kind.is_float32() && second.kind.is_float32() {
                     let first = f32::from_bits(first.value);
                     let second = f32::from_bits(second.value);
-                    return first <= second
+                    return first <= second;
                 }
 
                 if first.kind.is_mem_address() && second.kind.is_mem_address() {
@@ -504,7 +536,10 @@ impl VirtualMachine {
             }
 
             _ => {
-                self.emit_error_with_message(&format!("Undefined comparison operator {:#x}", op as Instruction));
+                self.emit_error_with_message(&format!(
+                    "Undefined comparison operator {:#x}",
+                    op as Instruction
+                ));
             }
         }
 
