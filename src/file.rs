@@ -1,4 +1,4 @@
-use std::{fs::{File, self}, error::Error, io::{Write, BufReader, Read}, fmt::Display};
+use std::{fs::{File, self}, error::Error, io::{Write, BufReader}, fmt::Display};
 use byteorder::{LittleEndian, WriteBytesExt, ReadBytesExt};
 
 use crate::{program::Program, instruction::Instruction, version, object::NovaObject};
