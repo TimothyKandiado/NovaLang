@@ -17,7 +17,7 @@ fn get_program() -> Program {
         InstructionBuilder::new_load_constant_instruction(0, 0),
         InstructionBuilder::new_load_constant_instruction(1, 1),
         InstructionBuilder::new_move_instruction(2, 0),
-        InstructionBuilder::new_comparison_instruction(OpCode::LT, 0, 1),
+        InstructionBuilder::new_comparison_instruction(OpCode::LESSJ, 0, 1),
         InstructionBuilder::new_jump_instruction(3, true),
         InstructionBuilder::new_print_instruction(0, true),
         InstructionBuilder::new_binary_op_instruction(OpCode::Add, 0, 0, 2),

@@ -1,7 +1,7 @@
 use crate::{
     bytecode::OpCode,
     instruction::{Instruction, InstructionDecoder},
-    object::{NovaObject, ObjectKind},
+    object::{NovaObject, RegisterValueKind},
     program::Program,
     register::{Register, RegisterID},
 };
@@ -59,6 +59,7 @@ impl VirtualMachine {
             self.execute_instruction(instruction);
 
             if self.check_error() {
+                self.print_error();
                 break;
             }
         }
@@ -115,7 +116,7 @@ impl VirtualMachine {
             }
 
             // Control flow
-            x if x == OpCode::LT as u32 => {
+            x if x == OpCode::LESSJ as u32 => {
                 self.less_or_jump(instruction);
             }
 
@@ -151,16 +152,21 @@ impl VirtualMachine {
         let register = self.get_register(source);
 
         match register.kind {
-            ObjectKind::Float32 => {
+            RegisterValueKind::Float32 => {
                 print!("{}", f32::from_bits(register.value))
             }
-            ObjectKind::None => {
+            RegisterValueKind::None => {
                 print!("None")
             }
-            ObjectKind::MemAddress => {
+            RegisterValueKind::MemAddress => {
                 let address = register.value;
                 let object = self.get_object_from_memory(address);
                 print!("{:?}", object);
+            }
+
+            RegisterValueKind::ImmAddress => {
+                let immutable = &self.immutables[register.value as usize];
+                print!("{:?}", immutable);
             }
         }
         if newline == 1 {
@@ -177,7 +183,7 @@ impl VirtualMachine {
         let register_1 = self.get_register(source_register_1);
         let register_2 = self.get_register(source_register_2);
 
-        if let (ObjectKind::Float32, ObjectKind::Float32) = (register_1.kind, register_2.kind) {
+        if let (RegisterValueKind::Float32, RegisterValueKind::Float32) = (register_1.kind, register_2.kind) {
             let value_1 = f32::from_bits(register_1.value);
             let value_2 = f32::from_bits(register_2.value);
 
@@ -189,7 +195,7 @@ impl VirtualMachine {
             return;
         }
 
-        if let (ObjectKind::MemAddress, ObjectKind::Float32) = (register_1.kind, register_2.kind) {
+        if let (RegisterValueKind::MemAddress, RegisterValueKind::Float32) = (register_1.kind, register_2.kind) {
             let object1 = self.get_object_from_memory(register_1.value);
             if let NovaObject::String(string) = object1 {
                 let value2 = f32::from_bits(register_2.value);
@@ -209,7 +215,27 @@ impl VirtualMachine {
             ));
         }
 
-        if let (ObjectKind::Float32, ObjectKind::MemAddress) = (register_1.kind, register_2.kind) {
+        if let (RegisterValueKind::ImmAddress, RegisterValueKind::Float32) = (register_1.kind, register_2.kind) {
+            let object1 = &self.immutables[register_1.value as usize];
+            if let NovaObject::String(string) = object1 {
+                let value2 = f32::from_bits(register_2.value);
+                let value2 = value2.to_string();
+
+                let mut new_value = *string.clone();
+                new_value.push_str(&value2);
+
+                let new_object = NovaObject::String(Box::new(new_value));
+                let address = self.load_object_to_memory(new_object);
+                self.load_memory_address_to_register(destination_register, address);
+                return;
+            }
+            self.emit_error_with_message(&format!(
+                "cannot add {:?} to {:?}",
+                object1, register_2.kind
+            ));
+        }
+
+        if let (RegisterValueKind::Float32, RegisterValueKind::MemAddress) = (register_1.kind, register_2.kind) {
             let object2 = self.get_object_from_memory(register_2.value);
             if let NovaObject::String(string) = object2 {
                 let value1 = f32::from_bits(register_1.value);
@@ -217,6 +243,26 @@ impl VirtualMachine {
 
                 let mut new_value = value1;
                 new_value.push_str(string);
+
+                let new_object = NovaObject::String(Box::new(new_value));
+                let address = self.load_object_to_memory(new_object);
+                self.load_memory_address_to_register(destination_register, address);
+                return;
+            }
+            self.emit_error_with_message(&format!(
+                "cannot add {:?} to {:?}",
+                register_1.kind, object2
+            ));
+        }
+
+        if let (RegisterValueKind::Float32, RegisterValueKind::ImmAddress) = (register_1.kind, register_2.kind) {
+            let object2 = &self.immutables[register_2.value as usize];
+            if let NovaObject::String(string) = object2 {
+                let value1 = f32::from_bits(register_1.value);
+                let value1 = value1.to_string();
+
+                let mut new_value = value1;
+                new_value.push_str(&string);
 
                 let new_object = NovaObject::String(Box::new(new_value));
                 let address = self.load_object_to_memory(new_object);
@@ -244,7 +290,7 @@ impl VirtualMachine {
         let register_1 = self.get_register(source_register_1);
         let register_2 = self.get_register(source_register_2);
 
-        if let (ObjectKind::Float32, ObjectKind::Float32) = (register_1.kind, register_2.kind) {
+        if let (RegisterValueKind::Float32, RegisterValueKind::Float32) = (register_1.kind, register_2.kind) {
             let value_1 = f32::from_bits(register_1.value);
             let value_2 = f32::from_bits(register_2.value);
 
@@ -271,7 +317,7 @@ impl VirtualMachine {
         let register_1 = self.get_register(source_register_1);
         let register_2 = self.get_register(source_register_2);
 
-        if let (ObjectKind::Float32, ObjectKind::Float32) = (register_1.kind, register_2.kind) {
+        if let (RegisterValueKind::Float32, RegisterValueKind::Float32) = (register_1.kind, register_2.kind) {
             let value_1 = f32::from_bits(register_1.value);
             let value_2 = f32::from_bits(register_2.value);
 
@@ -298,7 +344,7 @@ impl VirtualMachine {
         let register_1 = self.get_register(source_register_1);
         let register_2 = self.get_register(source_register_2);
 
-        if let (ObjectKind::Float32, ObjectKind::Float32) = (register_1.kind, register_2.kind) {
+        if let (RegisterValueKind::Float32, RegisterValueKind::Float32) = (register_1.kind, register_2.kind) {
             let value_1 = f32::from_bits(register_1.value);
             let value_2 = f32::from_bits(register_2.value);
 
@@ -325,7 +371,7 @@ impl VirtualMachine {
         let register_1 = self.get_register(source_register_1);
         let register_2 = self.get_register(source_register_2);
 
-        if let (ObjectKind::Float32, ObjectKind::Float32) = (register_1.kind, register_2.kind) {
+        if let (RegisterValueKind::Float32, RegisterValueKind::Float32) = (register_1.kind, register_2.kind) {
             let value_1 = f32::from_bits(register_1.value);
             let value_2 = f32::from_bits(register_2.value);
 
@@ -352,7 +398,7 @@ impl VirtualMachine {
         let register_1 = self.get_register(source_register_1);
         let register_2 = self.get_register(source_register_2);
 
-        if let (ObjectKind::Float32, ObjectKind::Float32) = (register_1.kind, register_2.kind) {
+        if let (RegisterValueKind::Float32, RegisterValueKind::Float32) = (register_1.kind, register_2.kind) {
             let value_1 = f32::from_bits(register_1.value) as i32;
             let value_2 = f32::from_bits(register_2.value) as i32;
 
@@ -379,7 +425,7 @@ impl VirtualMachine {
         let register1 = self.get_register(source1);
         let register2 = self.get_register(source2);
 
-        let less = self.compare_registers(OpCode::LT, register1, register2);
+        let less = self.compare_registers(OpCode::LESSJ, register1, register2);
         if self.check_error() {
             return;
         }
@@ -407,14 +453,8 @@ impl VirtualMachine {
         let destination_register = InstructionDecoder::decode_destination_register(instruction);
         let immutable_address = InstructionDecoder::decode_immutable_address_small(instruction);
 
-        let immutable_object = &self.immutables[immutable_address as usize];
-
-        match immutable_object {
-            _ => {
-                let address = self.load_object_to_memory(immutable_object.clone());
-                self.load_memory_address_to_register(destination_register, address);
-            }
-        }
+        let register = Register {kind: RegisterValueKind::ImmAddress, value: immutable_address};
+        self.set_value_in_register(destination_register, register);
     }
 
     #[inline(always)]
@@ -429,20 +469,20 @@ impl VirtualMachine {
     #[inline(always)]
     fn load_nil_to_register(&mut self, instruction: Instruction) {
         let destination = InstructionDecoder::decode_destination_register(instruction);
-        let register = Register::new(ObjectKind::None, 0);
+        let register = Register::new(RegisterValueKind::None, 0);
         self.set_value_in_register(destination, register);
     }
 
     #[inline(always)]
     fn load_memory_address_to_register(&mut self, destination: Instruction, address: Instruction) {
-        let value = Register::new(ObjectKind::MemAddress, address);
+        let value = Register::new(RegisterValueKind::MemAddress, address);
         self.set_value_in_register(destination, value);
     }
 
     #[inline(always)]
     fn load_number_to_register(&mut self, destination: Instruction, number: f32) {
         let number = number.to_bits();
-        let register = Register::new(ObjectKind::Float32, number);
+        let register = Register::new(RegisterValueKind::Float32, number);
         self.set_value_in_register(destination, register);
     }
 
@@ -450,7 +490,7 @@ impl VirtualMachine {
     fn load_bool_to_register(&mut self, instruction: Instruction) {
         let destination = InstructionDecoder::decode_destination_register(instruction);
         let boolean = InstructionDecoder::decode_immutable_address_small(instruction);
-        let register = Register::new(ObjectKind::Float32, boolean);
+        let register = Register::new(RegisterValueKind::Float32, boolean);
         self.set_value_in_register(destination, register);
     }
 
@@ -464,7 +504,18 @@ impl VirtualMachine {
     fn check_error(&self) -> bool {
         let register = self.get_register(RegisterID::RERR as Instruction);
 
-        if let ObjectKind::MemAddress = register.kind {
+        if let RegisterValueKind::MemAddress = register.kind {
+            return true;
+        }
+
+        false
+    }
+
+    #[inline(always)]
+    fn print_error(&self) {
+        let register = self.get_register(RegisterID::RERR as Instruction);
+
+        if let RegisterValueKind::MemAddress = register.kind {
             let address = register.value;
             let object = &self.memory[address as usize];
             eprint!("Error: ");
@@ -473,11 +524,9 @@ impl VirtualMachine {
                 eprint!("{}", string)
             }
             eprintln!();
-            return true;
         }
-
-        false
     }
+
 
     #[inline(always)]
     fn load_object_to_memory(&mut self, object: NovaObject) -> Instruction {
@@ -511,12 +560,17 @@ impl VirtualMachine {
     #[inline(always)]
     fn compare_registers(&mut self, op: OpCode, first: Register, second: Register) -> bool {
         match op {
-            OpCode::LT => {
+            OpCode::LESSJ => {
                 if first.kind.is_none() && second.kind.is_float32() {
                     return true;
                 }
 
                 if (first.kind.is_none() || first.kind.is_float32()) && second.kind.is_mem_address()
+                {
+                    return true;
+                }
+
+                if (first.kind.is_none() || first.kind.is_float32()) && second.kind.is_imm_address()
                 {
                     return true;
                 }
@@ -533,9 +587,32 @@ impl VirtualMachine {
 
                     return first < second;
                 }
+
+                if first.kind.is_imm_address() && second.kind.is_imm_address() {
+                    let first = &self.immutables[first.value as usize];
+                    let second = &self.immutables[second.value as usize];
+
+                    return first < second;
+                }
+
+                if first.kind.is_imm_address() && second.kind.is_mem_address() {
+                    let first = &self.immutables[first.value as usize];
+                    let second = self.get_object_from_memory(second.value);
+
+                    return first < second;
+                }
+
+                if first.kind.is_mem_address() && second.kind.is_imm_address() {
+                    let first = self.get_object_from_memory(first.value);
+                    let second = &self.immutables[second.value as usize];
+
+                    return first < second;
+                }
+
+                self.emit_error_with_message(&format!("cannot compare {:?} to {:?}", first.kind, second.kind));
             }
 
-            OpCode::LE => {
+            OpCode::LESSEQUALJ => {
                 if first.kind.is_none() && second.kind.is_float32() {
                     return true;
                 }
@@ -557,6 +634,8 @@ impl VirtualMachine {
 
                     return first <= second;
                 }
+
+                self.emit_error_with_message(&format!("cannot compare {:?} to {:?}", first.kind, second.kind));
             }
 
             _ => {

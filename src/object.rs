@@ -13,13 +13,17 @@ pub enum NovaObject {
 }
 
 #[derive(Debug, Clone, Copy)]
-pub enum ObjectKind {
+pub enum RegisterValueKind {
     None,
+    /// Float32 value
     Float32,
+    /// Index of object in memory array
     MemAddress,
+    /// Index of object in immutables array
+    ImmAddress,
 }
 
-impl ObjectKind {
+impl RegisterValueKind {
     #[inline(always)]
     pub fn is_none(&self) -> bool {
         matches!(self, Self::None)
@@ -33,5 +37,10 @@ impl ObjectKind {
     #[inline(always)]
     pub fn is_mem_address(&self) -> bool {
         matches!(self, Self::MemAddress)
+    }
+
+    #[inline(always)]
+    pub fn is_imm_address(&self) -> bool {
+        matches!(self, Self::ImmAddress)
     }
 }
