@@ -66,6 +66,15 @@ impl InstructionBuilder {
             .build()
     }
 
+    pub fn new_load_float32_instruction(
+        destination: Instruction,
+    ) -> Instruction {
+        InstructionBuilder::new()
+            .add_opcode(OpCode::LoadFloat)
+            .add_destination_register(destination)
+            .build()
+    }
+
     pub fn new_move_instruction(destination: Instruction, source: Instruction) -> Instruction {
         InstructionBuilder::new()
             .add_opcode(OpCode::Move)

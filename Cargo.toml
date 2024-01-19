@@ -11,4 +11,5 @@ debug = []
 verbose = ["debug"]
 
 [dependencies]
+byteorder = "1.5.0"
 memuse = "0.2.1"

@@ -6,6 +6,10 @@ pub enum OpCode {
     LoadK,
     /// Load nil values into a range of registers
     LoadNil,
+    /// Load Boolean values into a register
+    LoadBool,
+    /// Load float values into a register
+    LoadFloat,
     /// Store variable in memory
     StoreV,
     /// Load variable into a register

@@ -98,6 +98,18 @@ impl VirtualMachine {
                 self.load_constant_to_register(instruction);
             }
 
+            x if x == OpCode::LoadNil as u32 => {
+                self.load_nil_to_register(instruction);
+            }
+
+            x if x == OpCode::LoadBool as u32 => {
+                self.load_bool_to_register(instruction);
+            }
+
+            x if x == OpCode::LoadFloat as u32 => {
+                self.load_float32_to_register(instruction);
+            }
+
             x if x == OpCode::Move as u32 => {
                 self.move_register(instruction);
             }
@@ -398,12 +410,6 @@ impl VirtualMachine {
         let immutable_object = &self.immutables[immutable_address as usize];
 
         match immutable_object {
-            NovaObject::None => self.load_nil_to_register(destination_register),
-            NovaObject::Number(number) => {
-                self.load_number_to_register(destination_register, *number)
-            }
-            NovaObject::Bool(bool) => self.load_bool_to_register(destination_register, *bool),
-
             _ => {
                 let address = self.load_object_to_memory(immutable_object.clone());
                 self.load_memory_address_to_register(destination_register, address);
@@ -412,7 +418,17 @@ impl VirtualMachine {
     }
 
     #[inline(always)]
-    fn load_nil_to_register(&mut self, destination: Instruction) {
+    fn load_float32_to_register(&mut self, instruction: Instruction) {
+        let destination_register = InstructionDecoder::decode_destination_register(instruction);
+
+        let number = self.get_next_instruction();
+        let number = f32::from_bits(number);
+        self.load_number_to_register(destination_register, number);
+    }
+
+    #[inline(always)]
+    fn load_nil_to_register(&mut self, instruction: Instruction) {
+        let destination = InstructionDecoder::decode_destination_register(instruction);
         let register = Register::new(ObjectKind::None, 0);
         self.set_value_in_register(destination, register);
     }
@@ -431,8 +447,10 @@ impl VirtualMachine {
     }
 
     #[inline(always)]
-    fn load_bool_to_register(&mut self, destination: Instruction, boolean: bool) {
-        let register = Register::new(ObjectKind::Float32, boolean as u32);
+    fn load_bool_to_register(&mut self, instruction: Instruction) {
+        let destination = InstructionDecoder::decode_destination_register(instruction);
+        let boolean = InstructionDecoder::decode_immutable_address_small(instruction);
+        let register = Register::new(ObjectKind::Float32, boolean);
         self.set_value_in_register(destination, register);
     }
 
@@ -554,7 +572,6 @@ impl VirtualMachine {
 
     #[inline(always)]
     fn peek_next_instruction(&self) -> Instruction {
-        
         self.instructions[self.registers[RegisterID::RPC as usize].value as usize]
     }
 
