@@ -6,3 +6,5 @@ pub mod program;
 pub mod register;
 pub mod file;
 pub mod version;
+pub mod frame;
+pub mod debug;

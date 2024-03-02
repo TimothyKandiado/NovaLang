@@ -52,6 +52,8 @@ pub enum OpCode {
     Loop,
     /// Exit loop
     Break,
+    /// Push new stack frame
+    NewFrame,
     /// Return function value
     Return,
 

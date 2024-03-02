@@ -1,10 +1,9 @@
 use crate::{
-    bytecode::OpCode,
-    instruction::{Instruction, InstructionDecoder},
-    object::{NovaObject, RegisterValueKind},
-    program::Program,
-    register::{Register, RegisterID},
+    bytecode::OpCode, frame::Frame, instruction::{Instruction, InstructionDecoder}, object::{NovaObject, RegisterValueKind}, program::Program, register::{Register, RegisterID}
 };
+
+#[cfg(feature = "debug")]
+use crate::debug::debug_instruction;
 
 const PC_START: Instruction = 0x0;
 
@@ -15,6 +14,7 @@ pub struct VirtualMachine {
     running: bool,
     instruction_count: usize,
     memory: Vec<NovaObject>,
+    frames: Vec<Frame>,
 }
 
 impl Default for VirtualMachine {
@@ -32,6 +32,7 @@ impl VirtualMachine {
             running: false,
             instruction_count: 0,
             memory: Vec::new(),
+            frames: Vec::new(),
         }
     }
 
@@ -124,6 +125,14 @@ impl VirtualMachine {
                 self.jump(instruction);
             }
 
+            x if x == OpCode::NewFrame as u32 => {
+                self.new_frame()
+            }
+
+            x if x == OpCode::Return as u32 => {
+                self.drop_frame()
+            }
+
             // IO
             x if x == OpCode::Print as u32 => {
                 self.print(instruction);
@@ -142,6 +151,28 @@ impl VirtualMachine {
 
         let value = self.get_register(source);
         self.set_value_in_register(destination, value);
+    }
+
+    #[inline(always)]
+    fn new_frame(&mut self) {
+        let frame = Frame {
+            registers: self.registers,
+        };
+
+        self.frames.push(frame)
+    }
+
+    #[inline(always)]
+    fn drop_frame(&mut self) {
+        let frame = self.frames.pop();
+
+        if let Some(mut frame) = frame {
+            frame.registers[RegisterID::RPC as usize].value += 1;
+            self.registers = frame.registers;
+        }
+        else {
+            self.running = false;
+        }
     }
 
     #[inline(always)]
@@ -442,9 +473,9 @@ impl VirtualMachine {
         let offset = InstructionDecoder::decode_immutable_address_small(instruction);
         let direction = InstructionDecoder::decode_destination_register(instruction);
         if direction == 0 {
-            self.registers[RegisterID::RPC as usize].value -= offset; // backward jump
+            self.registers[RegisterID::RPC as usize].value -= offset + 1; // backward jump, add one since the intepreter will automatically add 1 after instruction
         } else {
-            self.registers[RegisterID::RPC as usize].value += offset; // forward jump
+            self.registers[RegisterID::RPC as usize].value += offset - 1; // forward jump, minus one since the intepreter will automatically add 1 after instruction
         }
     }
 
@@ -656,6 +687,7 @@ impl VirtualMachine {
 
     #[cfg(feature = "debug")]
     fn debug(&self) {
+        debug_instruction(&self.instructions, self.registers[RegisterID::RPC as usize].value);
         #[cfg(feature = "verbose")]
         self.print_register_values();
         #[cfg(feature = "verbose")]
