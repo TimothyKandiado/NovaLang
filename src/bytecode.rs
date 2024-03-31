@@ -37,11 +37,23 @@ pub enum OpCode {
     /// Logical Or
     Or,
     /// Less than Test (Jump if false) (A < B) ? Skip Jump : Jump
-    LESSJ,
+    LessJump,
     /// Less than or equal Test (Jump if false) (A < B) ? Skip Jump : Jump
-    LESSEQUALJ,
+    LessEqualJump,
     /// Unconditional Jump with Offset
     Jump,
+    /// Define Global Variable by looking up variable name
+    DefineGlobalIndirect,
+    /// Store value in global variable by looking up variable name
+    StoreGlobalIndirect,
+    /// Load value from Global Variable looking up variable name
+    LoadGlobalIndirect,
+    /// Load Global Variable
+    LoadGlobal,
+    /// Define local Variable
+    DefineLocal,
+    /// Store local variable
+    StoreLocal,
     /// Print value in register
     Print,
     /// Call a function

@@ -1,4 +1,7 @@
-use crate::{bytecode::OpCode, instruction::{Instruction, InstructionDecoder}};
+use crate::{
+    bytecode::OpCode,
+    instruction::{Instruction, InstructionDecoder},
+};
 
 pub fn debug_instruction(instructions: &Vec<Instruction>, instruction_pointer: Instruction) {
     let instruction = instructions[instruction_pointer as usize];
@@ -43,7 +46,7 @@ pub fn debug_instruction(instructions: &Vec<Instruction>, instruction_pointer: I
 
         x if x == OpCode::LoadFloat as u32 => {
             let destination_register = InstructionDecoder::decode_destination_register(instruction);
-            let number = instructions[instruction_pointer as usize +1];
+            let number = instructions[instruction_pointer as usize + 1];
             let number = f32::from_bits(number);
             load_number_to_register(destination_register, number);
         }
@@ -53,7 +56,7 @@ pub fn debug_instruction(instructions: &Vec<Instruction>, instruction_pointer: I
         }
 
         // Control flow
-        x if x == OpCode::LESSJ as u32 => {
+        x if x == OpCode::LessJump as u32 => {
             let source1 = InstructionDecoder::decode_source_register_1(instruction);
             let source2 = InstructionDecoder::decode_source_register_2(instruction);
 
@@ -64,7 +67,11 @@ pub fn debug_instruction(instructions: &Vec<Instruction>, instruction_pointer: I
             let offset = InstructionDecoder::decode_immutable_address_small(instruction);
             let direction = InstructionDecoder::decode_destination_register(instruction);
 
-            println!("JUMP {} {}", offset, if direction == 0 {"back"} else {"forward"});
+            println!(
+                "JUMP {} {}",
+                offset,
+                if direction == 0 { "back" } else { "forward" }
+            );
         }
 
         x if x == OpCode::NewFrame as u32 => {
@@ -81,8 +88,7 @@ pub fn debug_instruction(instructions: &Vec<Instruction>, instruction_pointer: I
             println!("PRINT {}", source);
         }
 
-        _ => println!("Unsupported opcode instruction ({:#x})",
-        opcode),
+        _ => println!("Unsupported opcode instruction ({:#x})", opcode),
     }
 }
 
@@ -91,7 +97,10 @@ fn binary_op(name: &str, instruction: Instruction) {
     let source_register_1 = InstructionDecoder::decode_source_register_1(instruction);
     let source_register_2 = InstructionDecoder::decode_source_register_2(instruction);
 
-    println!("{} {} {} {}", name, destination_register, source_register_1, source_register_2);
+    println!(
+        "{} {} {} {}",
+        name, destination_register, source_register_1, source_register_2
+    );
 }
 
 fn load_constant_to_register(instruction: Instruction) {
@@ -104,9 +113,12 @@ fn load_constant_to_register(instruction: Instruction) {
 fn load_bool_to_register(instruction: Instruction) {
     let destination = InstructionDecoder::decode_destination_register(instruction);
     let boolean = InstructionDecoder::decode_immutable_address_small(instruction);
-    
-    println!("LOADBOOL {} {}", destination, if boolean == 0 {"false"} else {"true"});
 
+    println!(
+        "LOADBOOL {} {}",
+        destination,
+        if boolean == 0 { "false" } else { "true" }
+    );
 }
 
 fn load_number_to_register(destination: Instruction, number: f32) {

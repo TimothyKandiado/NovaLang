@@ -1,8 +1,10 @@
 use std::collections::HashMap;
 
+use crate::instruction::Instruction;
+
 pub type ValueID = String;
 pub type BaseNumber = f32;
-pub type MappedMemory = HashMap<ValueID, NovaObject>;
+pub type MappedMemory = HashMap<ValueID, Instruction>;
 
 #[derive(Debug, Clone, PartialEq, PartialOrd)]
 pub enum NovaObject {

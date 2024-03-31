@@ -1,6 +1,5 @@
 use nova::{
-    bytecode::OpCode, instruction::InstructionBuilder, machine::VirtualMachine,
-    program::Program,
+    instruction::InstructionBuilder, machine::VirtualMachine, object::NovaObject, program::Program
 };
 
 fn main() {
@@ -11,26 +10,36 @@ fn main() {
 }
 
 fn get_program() -> Program {
-    let immutables = Vec::new();//vec![NovaObject::Number(1.0), NovaObject::Number(20.0)];
+    let immutables = vec![
+        NovaObject::String(Box::new("number1".to_string())),
+        NovaObject::String(Box::new("number2".to_string())),
+        ];
 
     let instructions = vec![
-        InstructionBuilder::new_load_float32_instruction(0),
-        21f32.to_bits(),
-        InstructionBuilder::new_load_float32_instruction(1),
-        11.0f32.to_bits(),
-        InstructionBuilder::new_move_instruction(2, 0),
-        InstructionBuilder::new_comparison_instruction(OpCode::LESSJ, 0, 1),
-        InstructionBuilder::new_jump_instruction(4, true),
-        InstructionBuilder::new_print_instruction(0, true),
-        InstructionBuilder::new_binary_op_instruction(OpCode::Add, 0, 0, 2),
-        InstructionBuilder::new_jump_instruction(4, false),
-        InstructionBuilder::new().add_opcode(OpCode::NewFrame).build(),
-        InstructionBuilder::new_jump_instruction(2, true),
-        InstructionBuilder::new_halt_instruction(),
+        // define global variables
+        InstructionBuilder::new_define_global_indirect(0u32),
+        InstructionBuilder::new_define_global_indirect(1u32),
+        // load constant numbers into register
         InstructionBuilder::new_load_float32_instruction(0),
         1000f32.to_bits(),
+        InstructionBuilder::new_load_float32_instruction(1),
+        88f32.to_bits(),
+        // print register values
         InstructionBuilder::new_print_instruction(0, true),
-        InstructionBuilder::new().add_opcode(OpCode::Return).build()
+        InstructionBuilder::new_print_instruction(1, true),
+        // store the numbers into the named global variables
+        InstructionBuilder::new_store_global_indirect(0, 0),
+        InstructionBuilder::new_store_global_indirect(1, 1),
+
+        // load the global variables into registers, switching the order
+        InstructionBuilder::new_load_global_indirect(1, 0),
+        InstructionBuilder::new_load_global_indirect(0, 1),
+
+        // print the global variables
+        InstructionBuilder::new_print_instruction(0, true),
+        InstructionBuilder::new_print_instruction(1, true),
+
+        InstructionBuilder::new_halt_instruction(),
     ];
     Program {
         instructions,

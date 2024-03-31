@@ -1,12 +1,16 @@
-use std::{fs::{File, self}, error::Error, io::{Write, BufReader}, fmt::Display};
-use byteorder::{LittleEndian, WriteBytesExt, ReadBytesExt};
+use byteorder::{LittleEndian, ReadBytesExt, WriteBytesExt};
+use std::{
+    error::Error,
+    fmt::Display,
+    fs::{self, File},
+    io::{BufReader, Write},
+};
 
-use crate::{program::Program, instruction::Instruction, version, object::NovaObject};
-
+use crate::{instruction::Instruction, object::NovaObject, program::Program, version};
 
 #[derive(Debug)]
 struct FileError {
-    description: String
+    description: String,
 }
 
 impl Display for FileError {
@@ -21,12 +25,12 @@ pub struct Metadata {
     version_major: Instruction,
     version_minor: Instruction,
     instruction_count: Instruction,
-    immutables_count: Instruction
+    immutables_count: Instruction,
 }
 
 #[repr(u8)]
 enum ImmutableKind {
-    String
+    String,
 }
 
 pub fn write_program_file(path: &str, program: &Program) -> Result<(), Box<dyn Error>> {
@@ -40,7 +44,7 @@ pub fn write_program_file(path: &str, program: &Program) -> Result<(), Box<dyn E
         version_major,
         version_minor,
         instruction_count,
-        immutables_count
+        immutables_count,
     };
 
     write_metadata(metadata, &mut buffer)?;
@@ -58,7 +62,7 @@ fn write_metadata(metadata: Metadata, buffer: &mut Vec<u8>) -> Result<(), Box<dy
     buffer.write_u32::<LittleEndian>(metadata.version_minor)?;
     buffer.write_u32::<LittleEndian>(metadata.instruction_count)?;
     buffer.write_u32::<LittleEndian>(metadata.immutables_count)?;
-    
+
     Ok(())
 }
 
@@ -82,7 +86,9 @@ fn write_immutables(program: &Program, buffer: &mut Vec<u8>) -> Result<(), Box<d
             }
 
             _ => {
-                return Err(Box::new(FileError {description: format!("Cannot write immutable {:?} to file", immutable)}))
+                return Err(Box::new(FileError {
+                    description: format!("Cannot write immutable {:?} to file", immutable),
+                }))
             }
         }
     }
@@ -101,21 +107,31 @@ pub fn read_program_file(path: &str) -> Result<Program, Box<dyn Error>> {
     let version_minor = version::minor();
 
     if metadata.version_major > version_major {
-        return Err(Box::new(FileError {description: format!("Version of bytecode {}.{} higher than supported {}.{}", metadata.version_major, metadata.version_minor, version_major, version_minor)}))
+        return Err(Box::new(FileError {
+            description: format!(
+                "Version of bytecode {}.{} higher than supported {}.{}",
+                metadata.version_major, metadata.version_minor, version_major, version_minor
+            ),
+        }));
     }
 
     if metadata.version_minor > version_minor {
-        return Err(Box::new(FileError {description: format!("Version of bytecode {}.{} higher than supported {}.{}", metadata.version_major, metadata.version_minor, version_major, version_minor)}))
+        return Err(Box::new(FileError {
+            description: format!(
+                "Version of bytecode {}.{} higher than supported {}.{}",
+                metadata.version_major, metadata.version_minor, version_major, version_minor
+            ),
+        }));
     }
 
     let instructions = read_instructions(&mut reader, metadata.instruction_count)?;
     let immutables = read_immutables(&mut reader, metadata.immutables_count)?;
 
-    Ok(
-        Program { instructions, immutables }
-    )
+    Ok(Program {
+        instructions,
+        immutables,
+    })
 }
-
 
 fn read_metadata(reader: &mut BufReader<File>) -> Result<Metadata, Box<dyn Error>> {
     let version_major = reader.read_u32::<LittleEndian>()?;
@@ -123,12 +139,18 @@ fn read_metadata(reader: &mut BufReader<File>) -> Result<Metadata, Box<dyn Error
     let instruction_count = reader.read_u32::<LittleEndian>()?;
     let immutables_count = reader.read_u32::<LittleEndian>()?;
 
-    Ok(
-        Metadata { version_major, version_minor, instruction_count, immutables_count }
-    )
+    Ok(Metadata {
+        version_major,
+        version_minor,
+        instruction_count,
+        immutables_count,
+    })
 }
 
-pub fn read_instructions(reader: &mut BufReader<File>, instruction_count: u32) -> Result<Vec<u32>, Box<dyn Error>> {
+pub fn read_instructions(
+    reader: &mut BufReader<File>,
+    instruction_count: u32,
+) -> Result<Vec<u32>, Box<dyn Error>> {
     let mut instructions = Vec::new();
     for _ in 0..instruction_count {
         let instruction = reader.read_u32::<LittleEndian>()?;
@@ -138,11 +160,14 @@ pub fn read_instructions(reader: &mut BufReader<File>, instruction_count: u32) -
     Ok(instructions)
 }
 
-pub fn read_immutables(reader: &mut BufReader<File>, immutables_count: u32) -> Result<Vec<NovaObject>, Box<dyn Error>> {
+pub fn read_immutables(
+    reader: &mut BufReader<File>,
+    immutables_count: u32,
+) -> Result<Vec<NovaObject>, Box<dyn Error>> {
     let mut immutables = Vec::new();
     for _ in 0..immutables_count {
         let immutable_kind = reader.read_u8()?;
-        
+
         match immutable_kind {
             x if x == ImmutableKind::String as u8 => {
                 let length = reader.read_u64::<LittleEndian>()?;
@@ -151,13 +176,18 @@ pub fn read_immutables(reader: &mut BufReader<File>, immutables_count: u32) -> R
                     let byte = reader.read_u8()?;
                     str_buffer.push(byte);
                 }
-                
+
                 let string = String::from_utf8(str_buffer)?;
                 immutables.push(NovaObject::String(Box::new(string)))
             }
 
             _ => {
-                return Err(Box::new(FileError {description: format!("Cannot read immutable_kind {:?} from file", immutable_kind)}))
+                return Err(Box::new(FileError {
+                    description: format!(
+                        "Cannot read immutable_kind {:?} from file",
+                        immutable_kind
+                    ),
+                }))
             }
         }
     }
@@ -167,9 +197,11 @@ pub fn read_immutables(reader: &mut BufReader<File>, immutables_count: u32) -> R
 
 #[cfg(test)]
 mod file_tests {
-    use crate::{program::Program, object::NovaObject, instruction::InstructionBuilder, bytecode::OpCode};
+    use crate::{
+        bytecode::OpCode, instruction::InstructionBuilder, object::NovaObject, program::Program,
+    };
 
-    use super::{write_program_file, read_program_file};
+    use super::{read_program_file, write_program_file};
 
     #[test]
     fn test_write_and_read() {
@@ -181,10 +213,8 @@ mod file_tests {
     }
 
     fn get_program() -> Program {
-        let immutables = vec![
-            NovaObject::String(Box::new("I am Timothy".to_string())),
-        ];
-    
+        let immutables = vec![NovaObject::String(Box::new("I am Timothy".to_string()))];
+
         let instructions = vec![
             InstructionBuilder::new_load_float32_instruction(0),
             10.0f32.to_bits(),

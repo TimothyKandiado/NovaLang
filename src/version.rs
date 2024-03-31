@@ -4,6 +4,6 @@ pub fn major() -> u32 {
 }
 
 #[inline]
-pub fn minor() -> u32{
+pub fn minor() -> u32 {
     env!("CARGO_PKG_VERSION_MINOR").parse::<u32>().unwrap_or(0)
 }

@@ -1,5 +1,10 @@
 use crate::{
-    bytecode::OpCode, frame::Frame, instruction::{Instruction, InstructionDecoder}, object::{NovaObject, RegisterValueKind}, program::Program, register::{Register, RegisterID}
+    bytecode::OpCode,
+    frame::Frame,
+    instruction::{Instruction, InstructionDecoder},
+    object::{MappedMemory, NovaObject, RegisterValueKind},
+    program::Program,
+    register::{Register, RegisterID},
 };
 
 #[cfg(feature = "debug")]
@@ -15,6 +20,9 @@ pub struct VirtualMachine {
     instruction_count: usize,
     memory: Vec<NovaObject>,
     frames: Vec<Frame>,
+    locals: Vec<Register>,
+    globals: Vec<Register>,
+    identifiers: MappedMemory,
 }
 
 impl Default for VirtualMachine {
@@ -33,6 +41,9 @@ impl VirtualMachine {
             instruction_count: 0,
             memory: Vec::new(),
             frames: Vec::new(),
+            locals: Vec::new(),
+            globals: Vec::new(),
+            identifiers: MappedMemory::new(),
         }
     }
 
@@ -116,8 +127,28 @@ impl VirtualMachine {
                 self.move_register(instruction);
             }
 
+            // Variable Manipulation
+            x if x == OpCode::DefineGlobalIndirect as u32 => {
+                self.define_global_indirect(instruction);
+            }
+
+            x if x == OpCode::StoreGlobalIndirect as u32 => {
+                self.store_global_indirect(instruction);
+            }
+
+            x if x == OpCode::LoadGlobalIndirect as u32 => {
+                self.load_global_indirect(instruction);
+            }
+
+            x if x == OpCode::LoadGlobal as u32 => {
+                let destination = InstructionDecoder::decode_destination_register(instruction);
+                let address = InstructionDecoder::decode_immutable_address_small(instruction);
+
+                self.load_global_value(destination, address);
+            }
+
             // Control flow
-            x if x == OpCode::LESSJ as u32 => {
+            x if x == OpCode::LessJump as u32 => {
                 self.less_or_jump(instruction);
             }
 
@@ -125,13 +156,9 @@ impl VirtualMachine {
                 self.jump(instruction);
             }
 
-            x if x == OpCode::NewFrame as u32 => {
-                self.new_frame()
-            }
+            x if x == OpCode::NewFrame as u32 => self.new_frame(),
 
-            x if x == OpCode::Return as u32 => {
-                self.drop_frame()
-            }
+            x if x == OpCode::Return as u32 => self.drop_frame(),
 
             // IO
             x if x == OpCode::Print as u32 => {
@@ -169,8 +196,7 @@ impl VirtualMachine {
         if let Some(mut frame) = frame {
             frame.registers[RegisterID::RPC as usize].value += 1;
             self.registers = frame.registers;
-        }
-        else {
+        } else {
             self.running = false;
         }
     }
@@ -214,7 +240,9 @@ impl VirtualMachine {
         let register_1 = self.get_register(source_register_1);
         let register_2 = self.get_register(source_register_2);
 
-        if let (RegisterValueKind::Float32, RegisterValueKind::Float32) = (register_1.kind, register_2.kind) {
+        if let (RegisterValueKind::Float32, RegisterValueKind::Float32) =
+            (register_1.kind, register_2.kind)
+        {
             let value_1 = f32::from_bits(register_1.value);
             let value_2 = f32::from_bits(register_2.value);
 
@@ -226,7 +254,9 @@ impl VirtualMachine {
             return;
         }
 
-        if let (RegisterValueKind::MemAddress, RegisterValueKind::Float32) = (register_1.kind, register_2.kind) {
+        if let (RegisterValueKind::MemAddress, RegisterValueKind::Float32) =
+            (register_1.kind, register_2.kind)
+        {
             let object1 = self.get_object_from_memory(register_1.value);
             if let NovaObject::String(string) = object1 {
                 let value2 = f32::from_bits(register_2.value);
@@ -246,7 +276,9 @@ impl VirtualMachine {
             ));
         }
 
-        if let (RegisterValueKind::ImmAddress, RegisterValueKind::Float32) = (register_1.kind, register_2.kind) {
+        if let (RegisterValueKind::ImmAddress, RegisterValueKind::Float32) =
+            (register_1.kind, register_2.kind)
+        {
             let object1 = &self.immutables[register_1.value as usize];
             if let NovaObject::String(string) = object1 {
                 let value2 = f32::from_bits(register_2.value);
@@ -266,7 +298,9 @@ impl VirtualMachine {
             ));
         }
 
-        if let (RegisterValueKind::Float32, RegisterValueKind::MemAddress) = (register_1.kind, register_2.kind) {
+        if let (RegisterValueKind::Float32, RegisterValueKind::MemAddress) =
+            (register_1.kind, register_2.kind)
+        {
             let object2 = self.get_object_from_memory(register_2.value);
             if let NovaObject::String(string) = object2 {
                 let value1 = f32::from_bits(register_1.value);
@@ -286,7 +320,9 @@ impl VirtualMachine {
             ));
         }
 
-        if let (RegisterValueKind::Float32, RegisterValueKind::ImmAddress) = (register_1.kind, register_2.kind) {
+        if let (RegisterValueKind::Float32, RegisterValueKind::ImmAddress) =
+            (register_1.kind, register_2.kind)
+        {
             let object2 = &self.immutables[register_2.value as usize];
             if let NovaObject::String(string) = object2 {
                 let value1 = f32::from_bits(register_1.value);
@@ -321,7 +357,9 @@ impl VirtualMachine {
         let register_1 = self.get_register(source_register_1);
         let register_2 = self.get_register(source_register_2);
 
-        if let (RegisterValueKind::Float32, RegisterValueKind::Float32) = (register_1.kind, register_2.kind) {
+        if let (RegisterValueKind::Float32, RegisterValueKind::Float32) =
+            (register_1.kind, register_2.kind)
+        {
             let value_1 = f32::from_bits(register_1.value);
             let value_2 = f32::from_bits(register_2.value);
 
@@ -348,7 +386,9 @@ impl VirtualMachine {
         let register_1 = self.get_register(source_register_1);
         let register_2 = self.get_register(source_register_2);
 
-        if let (RegisterValueKind::Float32, RegisterValueKind::Float32) = (register_1.kind, register_2.kind) {
+        if let (RegisterValueKind::Float32, RegisterValueKind::Float32) =
+            (register_1.kind, register_2.kind)
+        {
             let value_1 = f32::from_bits(register_1.value);
             let value_2 = f32::from_bits(register_2.value);
 
@@ -375,7 +415,9 @@ impl VirtualMachine {
         let register_1 = self.get_register(source_register_1);
         let register_2 = self.get_register(source_register_2);
 
-        if let (RegisterValueKind::Float32, RegisterValueKind::Float32) = (register_1.kind, register_2.kind) {
+        if let (RegisterValueKind::Float32, RegisterValueKind::Float32) =
+            (register_1.kind, register_2.kind)
+        {
             let value_1 = f32::from_bits(register_1.value);
             let value_2 = f32::from_bits(register_2.value);
 
@@ -402,7 +444,9 @@ impl VirtualMachine {
         let register_1 = self.get_register(source_register_1);
         let register_2 = self.get_register(source_register_2);
 
-        if let (RegisterValueKind::Float32, RegisterValueKind::Float32) = (register_1.kind, register_2.kind) {
+        if let (RegisterValueKind::Float32, RegisterValueKind::Float32) =
+            (register_1.kind, register_2.kind)
+        {
             let value_1 = f32::from_bits(register_1.value);
             let value_2 = f32::from_bits(register_2.value);
 
@@ -429,7 +473,9 @@ impl VirtualMachine {
         let register_1 = self.get_register(source_register_1);
         let register_2 = self.get_register(source_register_2);
 
-        if let (RegisterValueKind::Float32, RegisterValueKind::Float32) = (register_1.kind, register_2.kind) {
+        if let (RegisterValueKind::Float32, RegisterValueKind::Float32) =
+            (register_1.kind, register_2.kind)
+        {
             let value_1 = f32::from_bits(register_1.value) as i32;
             let value_2 = f32::from_bits(register_2.value) as i32;
 
@@ -456,7 +502,7 @@ impl VirtualMachine {
         let register1 = self.get_register(source1);
         let register2 = self.get_register(source2);
 
-        let less = self.compare_registers(OpCode::LESSJ, register1, register2);
+        let less = self.compare_registers(OpCode::LessJump, register1, register2);
         if self.check_error() {
             return;
         }
@@ -484,7 +530,10 @@ impl VirtualMachine {
         let destination_register = InstructionDecoder::decode_destination_register(instruction);
         let immutable_address = InstructionDecoder::decode_immutable_address_small(instruction);
 
-        let register = Register {kind: RegisterValueKind::ImmAddress, value: immutable_address};
+        let register = Register {
+            kind: RegisterValueKind::ImmAddress,
+            value: immutable_address,
+        };
         self.set_value_in_register(destination_register, register);
     }
 
@@ -558,7 +607,6 @@ impl VirtualMachine {
         }
     }
 
-
     #[inline(always)]
     fn load_object_to_memory(&mut self, object: NovaObject) -> Instruction {
         self.memory.push(object);
@@ -589,9 +637,94 @@ impl VirtualMachine {
     }
 
     #[inline(always)]
+    fn free_memory_location(&mut self, _address: Instruction) {
+        todo!()
+    }
+    #[inline(always)]
+    fn define_global_indirect(&mut self, instruction: Instruction) {
+        let index = InstructionDecoder::decode_immutable_address_small(instruction);
+        let immutable = self.immutables[index as usize].clone();
+
+        if let NovaObject::String(name) = immutable {
+            let global_location = self.allocate_global();
+            self.identifiers.insert(name.to_string(), global_location);
+        }
+    }
+
+    #[inline(always)]
+    fn allocate_global(&mut self) -> Instruction {
+        self.globals.push(Register::default());
+        return (self.globals.len() - 1) as Instruction;
+    }
+
+    #[inline(always)]
+    fn set_global_value(&mut self, address: Instruction, new_value: Register) {
+        let current_value = self.globals[address as usize];
+
+        if current_value.kind.is_mem_address() {
+            self.free_memory_location(current_value.value);
+        }
+
+        self.globals[address as usize] = new_value;
+    }
+
+    #[inline(always)]
+    fn load_global_value(&mut self, destination: Instruction, global_address: Instruction) {
+        let value = self.globals[global_address as usize];
+        self.registers[destination as usize] = value;
+    }
+
+    #[inline(always)]
+    fn store_global_indirect(&mut self, instruction: Instruction) {
+        let source = InstructionDecoder::decode_source_register_1(instruction);
+        let index = InstructionDecoder::decode_immutable_address_small(instruction);
+
+        let immutable = self.immutables[index as usize].clone();
+
+        if let NovaObject::String(name) = immutable {
+            let global_address = self.identifiers.get(name.as_str());
+
+            if let Some(&address) = global_address {
+                let register = self.get_register(source);
+                self.set_global_value(address, register);
+
+                return;
+            }
+
+            self.emit_error_with_message(&format!("Cannot find global named: {}", name));
+            return;
+        }
+
+        self.emit_error_with_message(&format!("Invalid global identifier: {:?}", immutable));
+    }
+
+    #[inline(always)]
+    fn load_global_indirect(&mut self, instruction: Instruction) {
+        let destination = InstructionDecoder::decode_destination_register(instruction);
+        let index = InstructionDecoder::decode_immutable_address_small(instruction);
+
+        let immutable = self.immutables[index as usize].clone();
+
+        if let NovaObject::String(name) = immutable {
+            let global_address = self.identifiers.get(name.as_str());
+
+            if let Some(&address) = global_address {
+                self.load_global_value(destination, address);
+
+                return;
+            }
+
+            self.emit_error_with_message(&format!("Cannot find global named: {}", name));
+            return;
+        }
+
+        self.emit_error_with_message(&format!("Invalid global identifier: {:?}", immutable));
+    }
+
+    #[inline(always)]
     fn compare_registers(&mut self, op: OpCode, first: Register, second: Register) -> bool {
         match op {
-            OpCode::LESSJ => {
+            OpCode::LessJump => {
                 if first.kind.is_none() && second.kind.is_float32() {
                     return true;
                 }
@@ -640,10 +773,13 @@ impl VirtualMachine {
                     return first < second;
                 }
 
-                self.emit_error_with_message(&format!("cannot compare {:?} to {:?}", first.kind, second.kind));
+                self.emit_error_with_message(&format!(
+                    "cannot compare {:?} to {:?}",
+                    first.kind, second.kind
+                ));
             }
 
-            OpCode::LESSEQUALJ => {
+            OpCode::LessEqualJump => {
                 if first.kind.is_none() && second.kind.is_float32() {
                     return true;
                 }
@@ -666,7 +802,10 @@ impl VirtualMachine {
                     return first <= second;
                 }
 
-                self.emit_error_with_message(&format!("cannot compare {:?} to {:?}", first.kind, second.kind));
+                self.emit_error_with_message(&format!(
+                    "cannot compare {:?} to {:?}",
+                    first.kind, second.kind
+                ));
             }
 
             _ => {
@@ -687,10 +826,19 @@ impl VirtualMachine {
 
     #[cfg(feature = "debug")]
     fn debug(&self) {
-        debug_instruction(&self.instructions, self.registers[RegisterID::RPC as usize].value);
+        debug_instruction(
+            &self.instructions,
+            self.registers[RegisterID::RPC as usize].value,
+        );
         #[cfg(feature = "verbose")]
         self.print_register_values();
-        #[cfg(feature = "verbose")]
+        #[cfg(feature = "dbg_memory")]
+        self.print_globals();
+        #[cfg(feature = "dbg_memory")]
+        self.print_locals();
+        #[cfg(feature = "dbg_memory")]
+        self.print_identifiers();
+        #[cfg(feature = "dbg_memory")]
         self.print_memory();
     }
 
@@ -704,10 +852,31 @@ impl VirtualMachine {
         println!("{:=^30}", "");
     }
 
-    #[cfg(feature = "verbose")]
+    #[cfg(feature = "dbg_memory")]
     fn print_memory(&self) {
-        println!("{:=^30}", "Memory");
+        println!("{:=^30}", "Heap");
         println!("==> {:?}", &self.memory);
+        println!("{:=^30}", "");
+    }
+
+    #[cfg(feature = "dbg_memory")]
+    fn print_globals(&self) {
+        println!("{:=^30}", "Globals");
+        println!("==> {:?}", &self.globals);
+        println!("{:=^30}", "");
+    }
+
+    #[cfg(feature = "dbg_memory")]
+    fn print_locals(&self) {
+        println!("{:=^30}", "Locals");
+        println!("==> {:?}", &self.locals);
+        println!("{:=^30}", "");
+    }
+    
+    #[cfg(feature = "dbg_memory")]
+    fn print_identifiers(&self) {
+        println!("{:=^30}", "Identifiers");
+        println!("==> {:?}", &self.identifiers);
         println!("{:=^30}", "");
     }
 }

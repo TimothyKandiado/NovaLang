@@ -12,9 +12,7 @@ fn main() {
 }
 
 fn get_program() -> Program {
-    let immutables = vec![
-        NovaObject::String(Box::new("I am Timothy".to_string())),
-    ];
+    let immutables = vec![NovaObject::String(Box::new("I am Timothy".to_string()))];
 
     let instructions = vec![
         InstructionBuilder::new_load_float32_instruction(0),

@@ -66,9 +66,30 @@ impl InstructionBuilder {
             .build()
     }
 
-    pub fn new_load_float32_instruction(
-        destination: Instruction,
-    ) -> Instruction {
+    pub fn new_define_global_indirect(immutable_address: Instruction) -> Instruction {
+        InstructionBuilder::new()
+            .add_opcode(OpCode::DefineGlobalIndirect)
+            .add_address_small(immutable_address)
+            .build()
+    }
+
+    pub fn new_store_global_indirect(source1: Instruction, immutable_address: Instruction) -> Instruction {
+        InstructionBuilder::new()
+            .add_opcode(OpCode::StoreGlobalIndirect)
+            .add_source_register_1(source1)
+            .add_address_small(immutable_address)
+            .build()
+    }
+
+    pub fn new_load_global_indirect(destination: Instruction, address: Instruction) -> Instruction {
+        InstructionBuilder::new()
+            .add_opcode(OpCode::LoadGlobalIndirect)
+            .add_destination_register(destination)
+            .add_address_small(address)
+            .build()
+    }
+
+    pub fn new_load_float32_instruction(destination: Instruction) -> Instruction {
         InstructionBuilder::new()
             .add_opcode(OpCode::LoadFloat)
             .add_destination_register(destination)
@@ -129,34 +150,33 @@ pub struct InstructionDecoder {}
 impl InstructionDecoder {
     #[inline(always)]
     pub fn decode_opcode(instruction: Instruction) -> Instruction {
-        
         instruction >> 26
     }
 
     #[inline(always)]
     pub fn decode_destination_register(instruction: Instruction) -> Instruction {
         let instruction = instruction >> 22;
-        
+
         instruction & 0xF
     }
 
     #[inline(always)]
     pub fn decode_source_register_1(instruction: Instruction) -> Instruction {
         let instruction = instruction >> 18;
-        
+
         instruction & 0xF
     }
 
     #[inline(always)]
     pub fn decode_source_register_2(instruction: Instruction) -> Instruction {
-        
+        // take only lower 4 bits
         instruction & 0xF
     }
 
     #[inline(always)]
     pub fn decode_immutable_address_small(instruction: Instruction) -> Instruction {
-        
-        instruction & 0x7FFF
+        // take only lower 16 bits
+        instruction & 0xffff
     }
 
     #[inline(always)]

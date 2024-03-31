@@ -11,7 +11,8 @@ debug = true
 [features]
 default = []
 debug = []
-verbose = ["debug"]
+verbose = ["debug", "dbg_memory"]
+dbg_memory = ["debug"]
 
 [dependencies]
 byteorder = "1.5.0"
