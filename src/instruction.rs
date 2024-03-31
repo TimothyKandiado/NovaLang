@@ -89,6 +89,36 @@ impl InstructionBuilder {
             .build()
     }
 
+    pub fn new_allocate_local(number: Instruction) -> Instruction {
+        InstructionBuilder::new()
+            .add_opcode(OpCode::AllocateLocal)
+            .add_address_small(number)
+            .build()
+    }
+
+    pub fn new_deallocate_local(number: Instruction) -> Instruction {
+        InstructionBuilder::new()
+            .add_opcode(OpCode::DeallocateLocal)
+            .add_address_small(number)
+            .build()
+    }
+
+    pub fn new_store_local(source1: Instruction, destination_variable: Instruction) -> Instruction {
+        InstructionBuilder::new()
+            .add_opcode(OpCode::StoreLocal)
+            .add_source_register_1(source1)
+            .add_address_small(destination_variable)
+            .build()
+    }
+
+    pub fn new_load_local(destination: Instruction, source_variable: Instruction) -> Instruction {
+        InstructionBuilder::new()
+            .add_opcode(OpCode::LoadLocal)
+            .add_destination_register(destination)
+            .add_address_small(source_variable)
+            .build()
+    }
+
     pub fn new_load_float32_instruction(destination: Instruction) -> Instruction {
         InstructionBuilder::new()
             .add_opcode(OpCode::LoadFloat)

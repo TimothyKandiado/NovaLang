@@ -139,12 +139,29 @@ impl VirtualMachine {
             x if x == OpCode::LoadGlobalIndirect as u32 => {
                 self.load_global_indirect(instruction);
             }
+            
 
             x if x == OpCode::LoadGlobal as u32 => {
                 let destination = InstructionDecoder::decode_destination_register(instruction);
                 let address = InstructionDecoder::decode_immutable_address_small(instruction);
 
                 self.load_global_value(destination, address);
+            }
+
+            x if x == OpCode::AllocateLocal as u32 => {
+                self.allocate_locals(instruction);
+            }
+
+            x if x == OpCode::DeallocateLocal as u32 => {
+                self.deallocate_locals(instruction);
+            }
+
+            x if x == OpCode::StoreLocal as u32 => {
+                self.store_local(instruction);
+            }
+
+            x if x == OpCode::LoadLocal as u32 => {
+                self.load_local(instruction);
             }
 
             // Control flow
@@ -722,6 +739,45 @@ impl VirtualMachine {
     }
 
     #[inline(always)]
+    fn allocate_locals(&mut self, instruction: Instruction) {
+        // number of variables
+        let number = InstructionDecoder::decode_immutable_address_small(instruction);
+        let mut local_space = vec![Register::default(); number as usize];
+
+        self.locals.append(&mut local_space)
+    }
+
+    #[inline(always)]
+    fn deallocate_locals(&mut self, instruction: Instruction) {
+        // number of variables
+        let mut number = InstructionDecoder::decode_immutable_address_small(instruction);
+        
+        while number > 0 {
+            number -= 1;
+            self.locals.pop();
+        }
+
+    }
+
+    #[inline(always)]
+    fn store_local(&mut self, instruction: Instruction) {
+        let source = InstructionDecoder::decode_source_register_1(instruction);
+        let address = InstructionDecoder::decode_immutable_address_small(instruction);
+
+        let register = self.get_register(source);
+        self.locals[address as usize] = register;
+    }
+
+    #[inline(always)]
+    fn load_local(&mut self, instruction: Instruction) {
+        let destination = InstructionDecoder::decode_destination_register(instruction);
+        let address = InstructionDecoder::decode_immutable_address_small(instruction);
+
+        let register = self.locals[address as usize];
+        self.set_value_in_register(destination, register);
+    }
+
+    #[inline(always)]
     fn compare_registers(&mut self, op: OpCode, first: Register, second: Register) -> bool {
         match op {
             OpCode::LessJump => {
@@ -862,14 +918,14 @@ impl VirtualMachine {
     #[cfg(feature = "dbg_memory")]
     fn print_globals(&self) {
         println!("{:=^30}", "Globals");
-        println!("==> {:?}", &self.globals);
+        print_vec_of_registers(&self.globals);
         println!("{:=^30}", "");
     }
 
     #[cfg(feature = "dbg_memory")]
     fn print_locals(&self) {
         println!("{:=^30}", "Locals");
-        println!("==> {:?}", &self.locals);
+        print_vec_of_registers(&self.locals);
         println!("{:=^30}", "");
     }
     
@@ -879,4 +935,15 @@ impl VirtualMachine {
         println!("==> {:?}", &self.identifiers);
         println!("{:=^30}", "");
     }
+
+    
+}
+
+#[allow(dead_code)]
+fn print_vec_of_registers(registers: &Vec<Register>) {
+    println!("[");
+    for (index, register) in registers.iter().enumerate() {
+        println!("\t[{}] {}, ",index, register)
+    }
+    println!("]");
 }

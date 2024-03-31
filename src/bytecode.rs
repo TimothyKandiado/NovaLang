@@ -50,10 +50,14 @@ pub enum OpCode {
     LoadGlobalIndirect,
     /// Load Global Variable
     LoadGlobal,
-    /// Define local Variable
-    DefineLocal,
+    /// Allocate space for local variables
+    AllocateLocal,
+    /// Deallocate space for local variables
+    DeallocateLocal,
     /// Store local variable
     StoreLocal,
+    /// Load local variable
+    LoadLocal,
     /// Print value in register
     Print,
     /// Call a function

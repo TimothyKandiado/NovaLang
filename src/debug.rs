@@ -55,6 +55,60 @@ pub fn debug_instruction(instructions: &Vec<Instruction>, instruction_pointer: I
             move_register(instruction);
         }
 
+        // Variable Manipulation
+        x if x == OpCode::DefineGlobalIndirect as u32 => {
+            let address = InstructionDecoder::decode_immutable_address_small(instruction);
+
+            println!("DEFINEGLOBALINDIRECT {}", address);
+        }
+
+        x if x == OpCode::StoreGlobalIndirect as u32 => {
+            let source1 = InstructionDecoder::decode_source_register_1(instruction);
+            let address = InstructionDecoder::decode_immutable_address_small(instruction);
+
+            println!("STOREGLOBALINDIRECT {} {}", source1, address);
+        }
+
+        x if x == OpCode::LoadGlobalIndirect as u32 => {
+            let destination = InstructionDecoder::decode_destination_register(instruction);
+            let address = InstructionDecoder::decode_immutable_address_small(instruction);
+
+            println!("LOADGLOBALINDIRECT {} {}", destination, address);
+        }
+        
+
+        x if x == OpCode::LoadGlobal as u32 => {
+            let destination = InstructionDecoder::decode_destination_register(instruction);
+            let address = InstructionDecoder::decode_immutable_address_small(instruction);
+
+            println!("LOADGLOBAL {} {}", destination, address);
+        }
+
+        x if x == OpCode::AllocateLocal as u32 => {
+            let number = InstructionDecoder::decode_immutable_address_small(instruction);
+
+            println!("ALLOCATELOCAL {}", number);
+        }
+
+        x if x == OpCode::DeallocateLocal as u32 => {
+            let number = InstructionDecoder::decode_immutable_address_small(instruction);
+            println!("DEALLOCATELOCAL {}", number);
+        }
+
+        x if x == OpCode::StoreLocal as u32 => {
+            let source1 = InstructionDecoder::decode_source_register_1(instruction);
+            let address = InstructionDecoder::decode_immutable_address_small(instruction);
+
+            println!("STORELOCAL {} {}", source1, address);
+        }
+
+        x if x == OpCode::LoadLocal as u32 => {
+            let destination = InstructionDecoder::decode_destination_register(instruction);
+            let address = InstructionDecoder::decode_immutable_address_small(instruction);
+
+            println!("LOADLOCAL {} {}", destination, address);
+        }
+
         // Control flow
         x if x == OpCode::LessJump as u32 => {
             let source1 = InstructionDecoder::decode_source_register_1(instruction);

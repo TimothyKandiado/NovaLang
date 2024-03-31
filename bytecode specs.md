@@ -36,20 +36,51 @@ LESSEQUALJUMP Works similarly
 Jump by offsetting the program counter by value IMM
 If SW is true perform a backward Jump
 
-## Print SR1
+## PRINT SR1
 Print content of SR1 to stdout
 
-## Halt
+## HALT
 Stop program execution
 
-## Call IMM
+## CALL IMM
 Perform a operation
 
 ## NewFrame
 Creates a new call frame
 Followed by a jump to the function
 
-## Return
+## RETURN
 Exit a function
 Pops the most recent call frame, quits programs if there are no more
 Should restore the registry values to before they call was performed
+
+## DEFINEGLOBALINDIRECT IMM
+Defines a named global address by looking up the constant/immutable pool and using string
+at position IMM as variable name
+
+## STOREGLOBALINDIRECT SR1 IMM
+Stores value in register SR1 in global variable by looking up variable named IMM in identifiers hashmap,
+
+## STOREGLOBAL SR1 IMM
+Stores value in register SR1 in global values array directly at position IMM
+
+## LOADGLOBALINDIRECT DR IMM
+Looks up variable named immutable[IMM] in identifiers map and takes its global values array index.
+Then copies that value into register DR
+
+## LOADGLOBAL DR IMM
+Loads global value at position IMM directly into register DR
+
+## ALLOCATELOCAL IMM
+Increments size of local variables stack by IMM
+Activates when entering scope
+
+## DEALLOCATELOCAL IMM
+Decrements size of local variables stack by IMM
+Activates when exiting scope
+
+## STORELOCAL SR1 IMM
+Stores register value in SR1 in local variables stack at position IMM
+
+## LOADLOCAL DR IMM
+Load local variable at position IMM into register DR

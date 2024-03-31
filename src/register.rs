@@ -55,7 +55,7 @@ impl Display for Register {
                 format!("{:<10} : {:>10}", "Float32", f32::from_bits(self.value))
             }
 
-            RegisterValueKind::None => format!("{:<10} : {:>#10x}", "None", self.value),
+            RegisterValueKind::None => format!("{:<10}", "None"),
             RegisterValueKind::MemAddress => format!("{:<10} : {:>#10x}", "MemAddress", self.value),
             RegisterValueKind::ImmAddress => format!("{:<10} : {:>#10x}", "ImmAddress", self.value),
         };
