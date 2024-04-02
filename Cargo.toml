@@ -12,7 +12,12 @@ debug = true
 default = []
 debug = []
 verbose = ["debug", "dbg_memory"]
-dbg_memory = ["debug"]
+dbg_memory = ["dbg_local", "dbg_global"]
+dbg_local = ["debug"]
+dbg_global = ["debug"]
+dbg_code = ["debug"]
+dbg_step = ["dbg_local", "dbg_code"]
+
 
 [dependencies]
 byteorder = "1.5.0"

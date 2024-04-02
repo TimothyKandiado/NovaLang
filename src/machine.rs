@@ -209,7 +209,7 @@ impl VirtualMachine {
 
     #[inline(always)]
     fn increase_local_offset(&mut self) {
-        self.registers[RegisterID::RLO as usize].value += (self.locals.len() - 1) as Instruction;
+        self.registers[RegisterID::RLO as usize].value += (self.locals.len()) as Instruction;
     }
 
     #[inline(always)]
@@ -894,17 +894,18 @@ impl VirtualMachine {
 
     #[cfg(feature = "debug")]
     fn debug(&self) {
+        #[cfg(feature = "dbg_code")]
         debug_instruction(
             &self.instructions,
             self.registers[RegisterID::RPC as usize].value,
         );
         #[cfg(feature = "verbose")]
         self.print_register_values();
-        #[cfg(feature = "dbg_memory")]
+        #[cfg(feature = "dbg_global")]
         self.print_globals();
-        #[cfg(feature = "dbg_memory")]
+        #[cfg(feature = "dbg_local")]
         self.print_locals();
-        #[cfg(feature = "dbg_memory")]
+        #[cfg(feature = "dbg_global")]
         self.print_identifiers();
         #[cfg(feature = "dbg_memory")]
         self.print_memory();
@@ -927,21 +928,21 @@ impl VirtualMachine {
         println!("{:=^30}", "");
     }
 
-    #[cfg(feature = "dbg_memory")]
+    #[cfg(feature = "dbg_global")]
     fn print_globals(&self) {
         println!("{:=^30}", "Globals");
         print_vec_of_registers(&self.globals);
         println!("{:=^30}", "");
     }
 
-    #[cfg(feature = "dbg_memory")]
+    #[cfg(feature = "dbg_local")]
     fn print_locals(&self) {
         println!("{:=^30}", "Locals");
         print_vec_of_registers(&self.locals);
         println!("{:=^30}", "");
     }
     
-    #[cfg(feature = "dbg_memory")]
+    #[cfg(feature = "dbg_global")]
     fn print_identifiers(&self) {
         println!("{:=^30}", "Identifiers");
         println!("==> {:?}", &self.identifiers);
