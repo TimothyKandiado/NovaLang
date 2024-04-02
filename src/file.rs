@@ -85,10 +85,8 @@ fn write_immutables(program: &Program, buffer: &mut Vec<u8>) -> Result<(), Box<d
                 buffer.write(bytes)?;
             }
 
-            _ => {
-                return Err(Box::new(FileError {
-                    description: format!("Cannot write immutable {:?} to file", immutable),
-                }))
+            NovaObject::None => {
+                continue;
             }
         }
     }

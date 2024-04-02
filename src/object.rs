@@ -9,8 +9,6 @@ pub type MappedMemory = HashMap<ValueID, Instruction>;
 #[derive(Debug, Clone, PartialEq, PartialOrd)]
 pub enum NovaObject {
     None,
-    Bool(bool),
-    Number(BaseNumber),
     String(Box<String>),
 }
 
