@@ -40,7 +40,7 @@ impl VirtualMachine {
             running: false,
             instruction_count: 0,
             memory: Vec::new(),
-            frames: Vec::new(),
+            frames: vec![Frame::main()],
             locals: Vec::new(),
             globals: Vec::new(),
             identifiers: MappedMemory::new(),
@@ -199,20 +199,30 @@ impl VirtualMachine {
 
     #[inline(always)]
     fn new_frame(&mut self) {
-        let frame = Frame {
-            registers: self.registers,
-        };
+        let return_address = self.registers[RegisterID::RPC as usize].value;
+        let local_offset = self.registers[RegisterID::RLO as usize].value;
+        let frame = Frame::new(return_address, local_offset, false);
 
-        self.frames.push(frame)
+        self.frames.push(frame);
+        self.increase_local_offset();
+    }
+
+    #[inline(always)]
+    fn increase_local_offset(&mut self) {
+        self.registers[RegisterID::RLO as usize].value += (self.locals.len() - 1) as Instruction;
     }
 
     #[inline(always)]
     fn drop_frame(&mut self) {
         let frame = self.frames.pop();
 
-        if let Some(mut frame) = frame {
-            frame.registers[RegisterID::RPC as usize].value += 1;
-            self.registers = frame.registers;
+        if let Some(frame) = frame {
+            if frame.is_main {
+                self.running = false;
+                return;
+            }
+            self.registers[RegisterID::RPC as usize].value = frame.return_address + 1;
+            self.registers[RegisterID::RLO as usize].value = frame.local_offset;
         } else {
             self.running = false;
         }
@@ -765,7 +775,8 @@ impl VirtualMachine {
         let address = InstructionDecoder::decode_immutable_address_small(instruction);
 
         let register = self.get_register(source);
-        self.locals[address as usize] = register;
+        let local_offset = self.registers[RegisterID::RLO as usize].value;
+        self.locals[(address + local_offset) as usize] = register;
     }
 
     #[inline(always)]
@@ -773,7 +784,8 @@ impl VirtualMachine {
         let destination = InstructionDecoder::decode_destination_register(instruction);
         let address = InstructionDecoder::decode_immutable_address_small(instruction);
 
-        let register = self.locals[address as usize];
+        let local_offset = self.registers[RegisterID::RLO as usize].value;
+        let register = self.locals[(address + local_offset) as usize];
         self.set_value_in_register(destination, register);
     }
 

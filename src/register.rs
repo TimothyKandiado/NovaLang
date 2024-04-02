@@ -14,7 +14,8 @@ pub enum RegisterID {
     R8,
     R9,
     R10,
-    R11,
+    /// Local offset
+    RLO,
     /// Error tracker
     RERR,
     /// Program Counter
