@@ -66,6 +66,14 @@ impl InstructionBuilder {
             .build()
     }
 
+    pub fn new_load_bool(destination: Instruction, value: Instruction) -> Instruction {
+        InstructionBuilder::new()
+            .add_opcode(OpCode::LoadBool)
+            .add_destination_register(destination)
+            .add_address_small(value)
+            .build()
+    }
+
     pub fn new_define_global_indirect(immutable_address: Instruction) -> Instruction {
         InstructionBuilder::new()
             .add_opcode(OpCode::DefineGlobalIndirect)

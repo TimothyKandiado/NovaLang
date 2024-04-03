@@ -8,3 +8,4 @@ pub mod object;
 pub mod program;
 pub mod register;
 pub mod version;
+pub mod compiler;

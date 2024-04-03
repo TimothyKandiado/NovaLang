@@ -242,6 +242,9 @@ impl VirtualMachine {
             RegisterValueKind::None => {
                 print!("None")
             }
+            RegisterValueKind::Bool => {
+                print!("{}", register.value == 1)
+            }
             RegisterValueKind::MemAddress => {
                 let address = register.value;
                 let object = self.get_object_from_memory(address);

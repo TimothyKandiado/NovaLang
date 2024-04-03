@@ -17,6 +17,8 @@ pub enum RegisterValueKind {
     None,
     /// Float32 value
     Float32,
+    /// Bool
+    Bool,
     /// Index of object in memory array
     MemAddress,
     /// Index of object in immutables array
