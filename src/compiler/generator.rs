@@ -1,5 +1,5 @@
 
-use nova_tw::language::{Expression, ExpressionVisitor, Object, Statement, StatementVisitor, TokenType};
+use nova_tw::language::{literal, Expression, ExpressionVisitor, Object, Statement, StatementVisitor, TokenType};
 
 use crate::{bytecode::OpCode, instruction::{Instruction, InstructionBuilder}, object::NovaObject, program::Program};
 
@@ -139,8 +139,31 @@ impl ExpressionVisitor for BytecodeGenerator {
         self.temp_stack.push(())
     }
 
-    fn visit_call(&mut self, math_function: &nova_tw::language::call::Call) -> Self::Output {
-        todo!()
+    fn visit_call(&mut self, function: &nova_tw::language::call::Call) -> Self::Output {
+        if let Expression::Variable(variable) = &function.callee {
+            let name = variable.name.object.to_string();
+            if name == "print" {
+                for argument in &function.arguments {
+                    self.evaluate(argument);
+                    let source = self.temp_stack.len() as Instruction - 1;
+                    self.temp_stack.pop();
+                    self.program.instructions.push(InstructionBuilder::new_print_instruction(source, false));
+                }
+                return;
+            }
+
+            if name == "println" {
+                for argument in &function.arguments {
+                    self.evaluate(argument);
+                    let source = self.temp_stack.len() as Instruction - 1;
+                    self.temp_stack.pop();
+                    self.program.instructions.push(InstructionBuilder::new_print_instruction(source, true));
+                }
+                return;
+            }
+        }
+
+        self.generate_error(format!("Function calls not implemented yet"));
     }
 
     fn visit_variable(&mut self, variable: &nova_tw::language::variable::Variable) -> Self::Output {
