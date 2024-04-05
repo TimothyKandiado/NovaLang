@@ -30,7 +30,7 @@ pub struct VirtualMachine {
     immutables: Vec<NovaObject>,
     registers: [Register; RegisterID::RMax as usize + 1],
     running: bool,
-    instruction_count: usize,
+    //instruction_count: usize,
     memory: Vec<NovaObject>,
     frames: Vec<Frame>,
     locals: Vec<Register>,
@@ -51,7 +51,7 @@ impl VirtualMachine {
             immutables: Vec::new(),
             registers: [Register::default(); RegisterID::RMax as usize + 1],
             running: false,
-            instruction_count: 0,
+            //instruction_count: 0,
             memory: Vec::new(),
             frames: vec![Frame::main()],
             locals: Vec::new(),
@@ -60,11 +60,15 @@ impl VirtualMachine {
         }
     }
 
+    pub fn get_instruction_count(&self) -> u32 {
+        self.instructions.len() as u32
+    }
+
     pub fn load_program(&mut self, program: Program) {
         let immutable_offset = self.immutables.len() as Instruction;
 
         for &instruction in &program.instructions {
-            self.instruction_count += 1;
+            //self.instruction_count += 1;
             let instruction = offset_immutable_address(instruction, immutable_offset);
             self.instructions.push(instruction);
         }

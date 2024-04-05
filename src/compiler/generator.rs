@@ -1,8 +1,7 @@
-use std::error;
 
 use nova_tw::language::{Expression, ExpressionVisitor, Object, Statement, StatementVisitor, TokenType};
 
-use crate::{bytecode::OpCode, instruction::{self, Instruction, InstructionBuilder}, object::NovaObject, program::Program};
+use crate::{bytecode::OpCode, instruction::{Instruction, InstructionBuilder}, object::NovaObject, program::Program};
 
 pub struct BytecodeGenerator {
     program: Program,
