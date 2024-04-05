@@ -86,6 +86,11 @@ impl VirtualMachine {
                 self.running = false;
             }
 
+            // Unary operations
+            x if x == OpCode::Neg as u32 => {
+                self.negate(instruction);
+            }
+
             // Binary Operations
             x if x == OpCode::Add as u32 => {
                 self.add(instruction);
@@ -259,6 +264,26 @@ impl VirtualMachine {
         if newline == 1 {
             println!()
         }
+    }
+
+    #[inline(always)]
+    fn negate(&mut self, instruction: Instruction) {
+        //let destination = InstructionDecoder::decode_destination_register(instruction);
+        let source = InstructionDecoder::decode_source_register_1(instruction);
+        let destination = source; // negate value in place
+
+        let register = self.get_register(source);
+        if let RegisterValueKind::Float32 = register.kind {
+            let value = f32::from_bits(register.value);
+            let value = -value;
+            let value = value.to_bits();
+
+            let register = Register::new(RegisterValueKind::Float32, value);
+            self.set_value_in_register(destination, register);
+            return;
+        }
+
+        self.emit_error_with_message("Cannot negate non float32 value");
     }
 
     #[inline(always)]

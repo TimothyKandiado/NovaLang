@@ -7,7 +7,8 @@ use crate::{bytecode::OpCode, instruction::{self, Instruction, InstructionBuilde
 pub struct BytecodeGenerator {
     program: Program,
     error: Option<String>,
-    temp_stack: Vec<()>
+    temp_stack: Vec<()>,
+    frame_stack: Vec<()>,
 }
 
 impl BytecodeGenerator {
@@ -15,22 +16,22 @@ impl BytecodeGenerator {
         Self {
             program: Program::default(),
             error: None,
-            temp_stack: Vec::new()
+            temp_stack: Vec::new(),
+            frame_stack: Vec::new(),
         }
     }
 
-    pub fn generate_bytecode(mut self, statements: &Vec<Statement>) -> Program {
+    pub fn generate_bytecode(mut self, statements: &Vec<Statement>) -> Result<Program, String> {
         for statement in statements {
             self.execute(statement);
-            if self.error.is_some() {
-                
-                break;
+            if let Some(error) = self.error {
+                return Err(error);
             }
         }
 
         self.program.instructions.push(InstructionBuilder::new_halt_instruction());
 
-        self.program
+        Ok(self.program)
     }
 
     fn execute(&mut self, statement: &Statement) {
@@ -47,6 +48,15 @@ impl BytecodeGenerator {
         }
 
         self.error = Some(format!("[Bytecode Gen Error]: {}",error))
+    }
+
+    fn get_immutable_index(&mut self, immutable: &NovaObject) -> Instruction {
+        if self.program.immutables.contains(immutable) {
+            self.program.immutables.iter().position(|value| value == immutable).unwrap() as Instruction
+        } else {
+            self.program.immutables.push(immutable.clone());
+            self.program.immutables.len() as Instruction - 1
+        }
     }
 }
 
@@ -86,7 +96,7 @@ impl ExpressionVisitor for BytecodeGenerator {
         let index = self.temp_stack.len() as Instruction - 1;
         match unary.operator.token_type {
             TokenType::Minus => {
-                self.program.instructions.push(InstructionBuilder::new().add_opcode(OpCode::Neg).add_destination_register(index).add_source_register_1(index).build())
+                self.program.instructions.push(InstructionBuilder::new().add_opcode(OpCode::Neg).add_source_register_1(index).build())
             }
 
             _ => {
@@ -119,12 +129,7 @@ impl ExpressionVisitor for BytecodeGenerator {
             Object::None => self.program.instructions.push(InstructionBuilder::new().add_opcode(OpCode::LoadNil).add_destination_register(register_index).build()),
             Object::String(string) => {
                 let object = NovaObject::String(Box::new(string));
-                let immutable_index = if self.program.immutables.contains(&object) {
-                    self.program.immutables.iter().position(|value| value == &object).unwrap()
-                } else {
-                    self.program.immutables.push(object);
-                    self.program.immutables.len() - 1
-                } as Instruction;
+                let immutable_index = self.get_immutable_index(&object);
                 self.program.instructions.push(InstructionBuilder::new_load_constant_instruction(register_index, immutable_index))
             },
 
@@ -140,11 +145,37 @@ impl ExpressionVisitor for BytecodeGenerator {
     }
 
     fn visit_variable(&mut self, variable: &nova_tw::language::variable::Variable) -> Self::Output {
-        todo!()
+        if self.frame_stack.len() == 0 {// global scope
+            let name = variable.name.object.to_string();
+            let name = NovaObject::String(Box::new(name));
+            
+            let name_index = self.get_immutable_index(&name);
+
+            let destination = self.temp_stack.len() as Instruction;
+            self.program.instructions.push(InstructionBuilder::new_load_global_indirect(destination, name_index));
+            self.temp_stack.push(());
+            return;
+        }
+
+        self.error = Some(format!("Local variable access not implemented yet"));
     }
 
     fn visit_assign(&mut self, assign: &nova_tw::language::assignment::Assign) -> Self::Output {
-        todo!()
+        self.evaluate(&assign.value);
+
+        if self.frame_stack.len() == 0 {// global scope
+            let name = assign.name.object.to_string();
+            let name = NovaObject::String(Box::new(name));
+            
+            let name_index = self.get_immutable_index(&name);
+
+            let source = self.temp_stack.len() as Instruction - 1;
+            self.temp_stack.pop();
+            self.program.instructions.push(InstructionBuilder::new_store_global_indirect(source, name_index));
+            return;
+        }
+
+        self.error = Some(format!("Local variable assignment not implemented yet"));
     }
 
     fn visit_get(&mut self, get: &nova_tw::language::assignment::Get) -> Self::Output {
@@ -184,7 +215,28 @@ impl StatementVisitor for BytecodeGenerator {
     }
 
     fn visit_var_declaration(&mut self, var_declaration: &nova_tw::language::declaration::VariableDeclaration) -> Self::Output {
-        todo!()
+        let mut initialized = false;
+        if let Some(initializer) = &var_declaration.initializer {
+            self.evaluate(initializer);
+            initialized = true;
+        }
+
+        if self.frame_stack.len() == 0 {// global scope
+            let name = var_declaration.name.object.to_string();
+            let name = NovaObject::String(Box::new(name));
+            
+            let name_index = self.get_immutable_index(&name);
+            self.program.instructions.push(InstructionBuilder::new_define_global_indirect(name_index));
+
+            if initialized {
+                let source = self.temp_stack.len() as Instruction - 1;
+                self.temp_stack.pop();
+                self.program.instructions.push(InstructionBuilder::new_store_global_indirect(source, name_index));
+            }
+            return;
+        }
+
+        self.generate_error(format!("declaring local variables not implemented"));
     }
 
     fn visit_expression_statement(&mut self, expression_statement: &nova_tw::language::Expression) -> Self::Output {

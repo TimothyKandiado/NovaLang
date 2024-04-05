@@ -10,5 +10,11 @@ pub fn compile(source: &str) -> Result<Program, errors::Error> {
     let ast = AstParser::new(tokens).parse_ast()?;
 
     let generator = generator::BytecodeGenerator::new();
-    Ok(generator.generate_bytecode(&ast))
+    let program = generator.generate_bytecode(&ast);
+
+    if let Err(error) = program {
+        return Err(errors::Error::Interpret(error))
+    }
+    
+    Ok(program.unwrap())
 }
