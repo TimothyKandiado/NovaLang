@@ -1,7 +1,7 @@
 use crate::{
     bytecode::OpCode,
     frame::Frame,
-    instruction::{Instruction, InstructionDecoder},
+    instruction::{Instruction, InstructionBuilder, InstructionDecoder},
     object::{MappedMemory, NovaObject, RegisterValueKind},
     program::Program,
     register::{Register, RegisterID},
@@ -11,6 +11,19 @@ use crate::{
 use crate::debug::debug_instruction;
 
 const PC_START: Instruction = 0x0;
+
+#[inline(always)]
+fn offset_immutable_address(instruction: Instruction, offset : Instruction) -> Instruction {
+    let opcode = InstructionDecoder::decode_opcode(instruction);
+
+    if opcode == OpCode::LoadK.to_u32() || opcode == OpCode::DefineGlobalIndirect.to_u32() || opcode == OpCode::LoadGlobalIndirect.to_u32() || opcode == OpCode::StoreGlobalIndirect.to_u32() {
+        let old_address = InstructionDecoder::decode_immutable_address_small(instruction);
+        let new_address = old_address + offset;
+        return InstructionBuilder::from(instruction).clear_address_small().add_address_small(new_address).build()
+    }
+
+    instruction
+}
 
 pub struct VirtualMachine {
     instructions: Vec<Instruction>,
@@ -48,9 +61,12 @@ impl VirtualMachine {
     }
 
     pub fn load_program(&mut self, program: Program) {
-        for instruction in &program.instructions {
+        let immutable_offset = self.immutables.len() as Instruction;
+
+        for &instruction in &program.instructions {
             self.instruction_count += 1;
-            self.instructions.push(*instruction);
+            let instruction = offset_immutable_address(instruction, immutable_offset);
+            self.instructions.push(instruction);
         }
 
         for immutable in &program.immutables {

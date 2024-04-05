@@ -17,6 +17,12 @@ impl InstructionBuilder {
         Self { instruction: 0 }
     }
 
+    pub fn from(instruction: Instruction) -> InstructionBuilder {
+        let mut instruction_builder = InstructionBuilder::new();
+        instruction_builder.instruction = instruction;
+        instruction_builder
+    }
+
     pub fn build(self) -> Instruction {
         self.instruction
     }
@@ -180,6 +186,12 @@ impl InstructionBuilder {
 
     pub fn add_address_small(mut self, address: Instruction) -> Self {
         self.instruction += address;
+        self
+    }
+
+    pub fn clear_address_small(mut self) -> Self {
+        self.instruction = self.instruction >> 16;
+        self.instruction = self.instruction << 16;
         self
     }
 }

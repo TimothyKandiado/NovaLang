@@ -75,3 +75,9 @@ pub enum OpCode {
 
     Halt,
 }
+
+impl OpCode {
+    pub fn to_u32(&self) -> u32 {
+        *self as u32
+    }
+}
