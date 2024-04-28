@@ -43,11 +43,13 @@ impl InstructionBuilder {
 
     pub fn new_comparison_instruction(
         op: OpCode,
+        destination: Instruction,
         source1: Instruction,
         source2: Instruction,
     ) -> Instruction {
         InstructionBuilder::new()
             .add_opcode(op)
+            .add_destination_register(destination)
             .add_source_register_1(source1)
             .add_source_register_2(source2)
             .build()
@@ -58,6 +60,13 @@ impl InstructionBuilder {
             .add_opcode(OpCode::Jump)
             .add_destination_register(forward as Instruction)
             .add_address_small(offset)
+            .build()
+    }
+
+    pub fn new_jump_false_instruction(source1: Instruction) -> Instruction {
+        InstructionBuilder::new()
+            .add_opcode(OpCode::JumpFalse)
+            .add_source_register_1(source1)
             .build()
     }
 

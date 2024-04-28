@@ -117,6 +117,19 @@ pub fn debug_instruction(instructions: &Vec<Instruction>, instruction_pointer: I
             println!("LESS {} {}", source1, source2);
         }
 
+        x if x == OpCode::LessEqual as u32 => {
+            let source1 = InstructionDecoder::decode_source_register_1(instruction);
+            let source2 = InstructionDecoder::decode_source_register_2(instruction);
+
+            println!("LESSEQUAL {} {}", source1, source2);
+        }
+
+        x if x == OpCode::JumpFalse as u32 => {
+            let source1 = InstructionDecoder::decode_source_register_1(instruction);
+
+            println!("JUMPFALSE {}", source1);
+        }
+
         x if x == OpCode::Jump as u32 => {
             let offset = InstructionDecoder::decode_immutable_address_small(instruction);
             let direction = InstructionDecoder::decode_destination_register(instruction);
