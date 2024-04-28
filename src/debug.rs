@@ -110,11 +110,11 @@ pub fn debug_instruction(instructions: &Vec<Instruction>, instruction_pointer: I
         }
 
         // Control flow
-        x if x == OpCode::LessJump as u32 => {
+        x if x == OpCode::Less as u32 => {
             let source1 = InstructionDecoder::decode_source_register_1(instruction);
             let source2 = InstructionDecoder::decode_source_register_2(instruction);
 
-            println!("LESSJ {} {}", source1, source2);
+            println!("LESS {} {}", source1, source2);
         }
 
         x if x == OpCode::Jump as u32 => {

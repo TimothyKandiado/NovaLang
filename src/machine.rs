@@ -189,9 +189,23 @@ impl VirtualMachine {
                 self.load_local(instruction);
             }
 
+            // Logical tests
+            x if x == OpCode::Less as u32 => {
+                self.less(instruction);
+            }
+
+            x if x == OpCode::LessEqual as u32 => {
+                self.less_or_equal(instruction);
+            }
+
+            x if x == OpCode::Not as u32 => {
+                self.not(instruction);
+            }
+
             // Control flow
-            x if x == OpCode::LessJump as u32 => {
-                self.less_or_jump(instruction);
+
+            x if x == OpCode::JumpFalse as u32 => {
+                self.jump_if_false(instruction);
             }
 
             x if x == OpCode::Jump as u32 => {
@@ -569,23 +583,87 @@ impl VirtualMachine {
     }
 
     #[inline(always)]
-    /// compares if first register is less than second register, then jumps if comparison false
-    fn less_or_jump(&mut self, instruction: Instruction) {
+    /// compares if first register is less than second register
+    fn less(&mut self, instruction: Instruction) {
         let source1 = InstructionDecoder::decode_source_register_1(instruction);
         let source2 = InstructionDecoder::decode_source_register_2(instruction);
+
+        let destination = InstructionDecoder::decode_destination_register(instruction);
 
         let register1 = self.get_register(source1);
         let register2 = self.get_register(source2);
 
-        let less = self.compare_registers(OpCode::LessJump, register1, register2);
+        let less = self.compare_registers(OpCode::Less, register1, register2);
         if self.check_error() {
             return;
         }
 
-        let next = self.get_next_instruction();
+        let register = Register{
+            value: if less {1} else {0},
+            kind: RegisterValueKind::Bool
+        };
 
-        if !less {
-            self.jump(next)
+        self.set_value_in_register(destination, register);
+    }
+
+    #[inline(always)]
+    /// compares if first register is less than or equal to second register
+    fn less_or_equal(&mut self, instruction: Instruction) {
+        let source1 = InstructionDecoder::decode_source_register_1(instruction);
+        let source2 = InstructionDecoder::decode_source_register_2(instruction);
+
+        let destination = InstructionDecoder::decode_destination_register(instruction);
+
+        let register1 = self.get_register(source1);
+        let register2 = self.get_register(source2);
+
+        let less = self.compare_registers(OpCode::LessEqual, register1, register2);
+        if self.check_error() {
+            return;
+        }
+
+        let register = Register{
+            value: if less {1} else {0},
+            kind: RegisterValueKind::Bool
+        };
+
+        self.set_value_in_register(destination, register);
+    }
+
+    #[inline(always)]
+    fn not(&mut self, instruction: Instruction) {
+        let source = InstructionDecoder::decode_source_register_1(instruction);
+        let mut register = self.get_register(source);
+
+        let is_true = self.is_truthy(register);
+        register.value = if is_true {0} else {1};
+        self.set_value_in_register(source, register);
+    }
+
+    #[inline(always)]
+    fn is_truthy(&self, register: Register) -> bool {
+        match register.kind {
+            RegisterValueKind::None => false,
+            RegisterValueKind::Float32 => true,
+            RegisterValueKind::Bool => {
+                register.value == 1
+            },
+            RegisterValueKind::MemAddress => true,
+            RegisterValueKind::ImmAddress => true,
+        }
+    }
+
+    #[inline(always)]
+    fn jump_if_false(&mut self, instruction: Instruction) {
+        let source = InstructionDecoder::decode_source_register_1(instruction);
+
+        let register = self.get_register(source);
+        let truthy = self.is_truthy(register);
+
+        let jump_instruction = self.get_next_instruction();
+
+        if !truthy {
+            self.jump(jump_instruction);
         }
     }
 
@@ -840,7 +918,7 @@ impl VirtualMachine {
     #[inline(always)]
     fn compare_registers(&mut self, op: OpCode, first: Register, second: Register) -> bool {
         match op {
-            OpCode::LessJump => {
+            OpCode::Less => {
                 if first.kind.is_none() && second.kind.is_float32() {
                     return true;
                 }
@@ -895,7 +973,7 @@ impl VirtualMachine {
                 ));
             }
 
-            OpCode::LessEqualJump => {
+            OpCode::LessEqual => {
                 if first.kind.is_none() && second.kind.is_float32() {
                     return true;
                 }

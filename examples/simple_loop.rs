@@ -18,7 +18,7 @@ fn get_program() -> Program {
         InstructionBuilder::new_load_float32_instruction(1),
         11.0f32.to_bits(),
         InstructionBuilder::new_move_instruction(2, 0),
-        InstructionBuilder::new_comparison_instruction(OpCode::LessJump, 0, 1),
+        InstructionBuilder::new_comparison_instruction(OpCode::Less, 0, 1),
         InstructionBuilder::new_jump_instruction(4, true),
         InstructionBuilder::new_print_instruction(0, true),
         InstructionBuilder::new_binary_op_instruction(OpCode::Add, 0, 0, 2),

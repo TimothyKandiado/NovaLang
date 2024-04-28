@@ -37,9 +37,13 @@ pub enum OpCode {
     /// Logical Or
     Or,
     /// Less than Test (Jump if false) (A < B) ? Skip Jump : Jump
-    LessJump,
+    Less,
     /// Less than or equal Test (Jump if false) (A < B) ? Skip Jump : Jump
-    LessEqualJump,
+    LessEqual,
+    /// Equality test
+    Equal,
+    /// Jump if a condition returned false
+    JumpFalse,
     /// Unconditional Jump with Offset
     Jump,
     /// Define Global Variable by looking up variable name
