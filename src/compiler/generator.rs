@@ -1,5 +1,5 @@
 
-use nova_tw::language::{literal, Expression, ExpressionVisitor, Object, Statement, StatementVisitor, TokenType};
+use nova_tw::language::{Expression, ExpressionVisitor, Object, Statement, StatementVisitor, TokenType};
 
 use crate::{bytecode::OpCode, instruction::{Instruction, InstructionBuilder}, object::NovaObject, program::Program};
 

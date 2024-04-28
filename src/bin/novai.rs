@@ -39,15 +39,6 @@ fn repl() {
         interpreter.start_vm(offset);
 
         offset += new_offset;
-
-        //interpreter.print_environment();
-        /* if let Err(err) = result {
-            if let errors::Error::Exit(code) = err {
-                println!("Exit code: {}", code);
-                return;
-            }
-            println!("{}", err)
-        } */
     }
 }
 
