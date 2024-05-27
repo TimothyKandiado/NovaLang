@@ -1,4 +1,6 @@
 
+use std::collections::HashMap;
+
 use nova_tw::language::{Expression, ExpressionVisitor, Object, Statement, StatementVisitor, TokenType};
 
 use crate::{bytecode::OpCode, instruction::{Instruction, InstructionBuilder}, object::NovaObject, program::Program};
@@ -8,6 +10,8 @@ pub struct BytecodeGenerator {
     error: Option<String>,
     temp_stack: Vec<()>,
     frame_stack: Vec<()>,
+    global_variables: HashMap<String, u32>,
+    local_var_stack: Vec<HashMap<String, u32>>
 }
 
 impl BytecodeGenerator {
@@ -17,6 +21,8 @@ impl BytecodeGenerator {
             error: None,
             temp_stack: Vec::new(),
             frame_stack: Vec::new(),
+            global_variables: HashMap::new(),
+            local_var_stack: Vec::new(),
         }
     }
 
@@ -244,11 +250,12 @@ impl StatementVisitor for BytecodeGenerator {
         }
 
         if self.frame_stack.len() == 0 {// global scope
-            let name = var_declaration.name.object.to_string();
-            let name = NovaObject::String(Box::new(name));
+            let name_str = var_declaration.name.object.to_string();
+            let name = NovaObject::String(Box::new(name_str.clone()));
             
             let name_index = self.get_immutable_index(&name);
             self.program.instructions.push(InstructionBuilder::new_define_global_indirect(name_index));
+            self.global_variables.insert(name_str, name_index);
 
             if initialized {
                 let source = self.temp_stack.len() as Instruction - 1;
