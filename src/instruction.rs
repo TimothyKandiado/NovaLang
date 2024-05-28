@@ -55,6 +55,14 @@ impl InstructionBuilder {
             .build()
     }
 
+    pub fn new_not_instruction(source1: Instruction) -> Instruction {
+        InstructionBuilder::new()
+            .add_opcode(OpCode::Not)
+            .add_destination_register(source1)
+            .add_source_register_1(source1)
+            .build()
+    }
+
     pub fn new_jump_instruction(offset: Instruction, forward: bool) -> Instruction {
         InstructionBuilder::new()
             .add_opcode(OpCode::Jump)

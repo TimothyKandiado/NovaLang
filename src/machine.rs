@@ -203,6 +203,10 @@ impl VirtualMachine {
                 self.not(instruction);
             }
 
+            x if x == OpCode::Equal as u32 => {
+                self.equal(instruction);
+            }
+
             // Control flow
 
             x if x == OpCode::JumpFalse as u32 => {
@@ -632,6 +636,30 @@ impl VirtualMachine {
     }
 
     #[inline(always)]
+    /// compares if first register is less than or equal to second register
+    fn equal(&mut self, instruction: Instruction) {
+        let source1 = InstructionDecoder::decode_source_register_1(instruction);
+        let source2 = InstructionDecoder::decode_source_register_2(instruction);
+
+        let destination = InstructionDecoder::decode_destination_register(instruction);
+
+        let register1 = self.get_register(source1);
+        let register2 = self.get_register(source2);
+
+        let equal = self.compare_registers(OpCode::Equal, register1, register2);
+        if self.check_error() {
+            return;
+        }
+
+        let register = Register{
+            value: if equal {1} else {0},
+            kind: RegisterValueKind::Bool
+        };
+
+        self.set_value_in_register(destination, register);
+    }
+
+    #[inline(always)]
     fn not(&mut self, instruction: Instruction) {
         let source = InstructionDecoder::decode_source_register_1(instruction);
         let mut register = self.get_register(source);
@@ -995,6 +1023,28 @@ impl VirtualMachine {
                     let second = self.get_object_from_memory(second.value);
 
                     return first <= second;
+                }
+
+                self.emit_error_with_message(&format!(
+                    "cannot compare {:?} to {:?}",
+                    first.kind, second.kind
+                ));
+            }
+
+            OpCode::Equal => {
+                if first.kind != second.kind {
+                    return false
+                }
+
+                if first.kind.is_float32() && second.kind.is_float32() {
+                    return first.value == second.value
+                }
+
+                if first.kind.is_mem_address() && second.kind.is_mem_address() {
+                    let first = self.get_object_from_memory(first.value);
+                    let second = self.get_object_from_memory(second.value);
+
+                    return first == second;
                 }
 
                 self.emit_error_with_message(&format!(

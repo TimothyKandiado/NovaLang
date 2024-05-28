@@ -124,6 +124,13 @@ pub fn debug_instruction(instructions: &Vec<Instruction>, instruction_pointer: I
             println!("LESSEQUAL {} {}", source1, source2);
         }
 
+        x if x == OpCode::Equal as u32 => {
+            let source1 = InstructionDecoder::decode_source_register_1(instruction);
+            let source2 = InstructionDecoder::decode_source_register_2(instruction);
+
+            println!("EQUAL {} {}", source1, source2);
+        }
+
         x if x == OpCode::JumpFalse as u32 => {
             let source1 = InstructionDecoder::decode_source_register_1(instruction);
 

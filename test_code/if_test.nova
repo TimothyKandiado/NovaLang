@@ -1,0 +1,13 @@
+var := 1
+
+while var <= 10 
+    is_even := var % 2 == 0
+
+    if is_even
+        println(var, " is even")
+    else
+        println(var, " is odd")
+    end
+
+    var = var + 1
+end

@@ -114,6 +114,8 @@ impl ExpressionVisitor for BytecodeGenerator {
 
         self.evaluate(&binary.left);
         self.evaluate(&binary.right);
+
+        let mut invert_condition = false;
         
         let opcode = match binary.operator.token_type {
             TokenType::Plus => OpCode::Add,
@@ -121,8 +123,22 @@ impl ExpressionVisitor for BytecodeGenerator {
             TokenType::Slash => OpCode::Div,
             TokenType::Star => OpCode::Mul,
             TokenType::Caret => OpCode::Pow,
+            TokenType::Percent => OpCode::Mod,
             TokenType::Less => OpCode::Less,
             TokenType::LessEqual => OpCode::LessEqual,
+            TokenType::Greater => {
+                invert_condition = true;
+                OpCode::LessEqual
+            }
+            TokenType::GreaterEqual => {
+                invert_condition = true;
+                OpCode::Less
+            },
+            TokenType::EqualEqual => OpCode::Equal,
+            TokenType::NotEqual => {
+                invert_condition = true;
+                OpCode::Equal
+            }
             
             
             _ => {
@@ -136,7 +152,11 @@ impl ExpressionVisitor for BytecodeGenerator {
 
         self.temp_stack.pop();
 
-        self.program.instructions.push(InstructionBuilder::new_binary_op_instruction(opcode, left_index, left_index, right_index))
+        self.program.instructions.push(InstructionBuilder::new_binary_op_instruction(opcode, left_index, left_index, right_index));
+
+        if invert_condition {
+            self.add_instruction(InstructionBuilder::new_not_instruction(left_index));
+        }
 
     }
 
@@ -270,8 +290,27 @@ impl StatementVisitor for BytecodeGenerator {
         todo!()
     }
 
-    fn visit_if(&mut self, _if_statement: &nova_tw::language::IfStatement) -> Self::Output {
-        todo!()
+    fn visit_if(&mut self, if_statement: &nova_tw::language::IfStatement) -> Self::Output {
+        self.evaluate(&if_statement.condition);
+
+        let source = self.temp_stack.len() as Instruction - 1;
+        self.temp_stack.pop();
+
+        self.add_instruction(InstructionBuilder::new_jump_false_instruction(source));
+        let jump_then_branch = self.add_instruction(InstructionBuilder::new_jump_instruction(1, true));
+        self.execute(&if_statement.then_branch);
+        let current = self.program.instructions.len() as Instruction - 1;
+        let offset = current - jump_then_branch;
+        self.program.instructions[jump_then_branch as usize] = InstructionBuilder::new_jump_instruction(offset+2, true);
+        
+        if let Some(else_branch) = &if_statement.else_branch {
+            let jump_else_branch = self.add_instruction(InstructionBuilder::new_jump_instruction(1, true));
+            self.execute(else_branch);
+            let current = self.program.instructions.len() as Instruction - 1;
+            let offset = current - jump_else_branch;
+            self.program.instructions[jump_else_branch as usize] = InstructionBuilder::new_jump_instruction(offset+1, true);
+        }
+
     }
 
     fn visit_while(&mut self, while_loop: &nova_tw::language::WhileLoop) -> Self::Output {
@@ -313,7 +352,7 @@ impl StatementVisitor for BytecodeGenerator {
     }
 
     fn visit_function_statement(&mut self, _function_statement: &nova_tw::language::function::FunctionStatement) -> Self::Output {
-        todo!()
+        
     }
 
     fn visit_return(&mut self, _return_statement: &Option<nova_tw::language::Expression>) -> Self::Output {

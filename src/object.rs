@@ -34,6 +34,7 @@ pub enum RegisterValueKind {
     ImmAddress,
 }
 
+
 impl RegisterValueKind {
     #[inline(always)]
     pub fn is_none(&self) -> bool {
@@ -53,5 +54,18 @@ impl RegisterValueKind {
     #[inline(always)]
     pub fn is_imm_address(&self) -> bool {
         matches!(self, Self::ImmAddress)
+    }
+}
+
+impl PartialEq for RegisterValueKind {
+    fn eq(&self, other: &Self) -> bool {
+        match (self, other) {
+            (Self::None, Self::None) => true,
+            (Self::Float32, Self::Float32) => true,
+            (Self::Bool, Self::Bool) => true,
+            (Self::MemAddress, Self::MemAddress) => true,
+            (Self::ImmAddress, Self::ImmAddress) => true,
+            _ => false,
+        }
     }
 }
