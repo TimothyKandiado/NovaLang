@@ -1,4 +1,4 @@
-use std::{env, io::{self, Write}, process::exit};
+use std::{env, fs, io::{self, Write}, process::exit};
 
 use nova::{compiler, instruction::Instruction, machine::VirtualMachine};
 
@@ -42,6 +42,20 @@ fn repl() {
     }
 }
 
-fn run_file(_path: &str) {
-    todo!()
+fn run_file(path: &str) {
+    let result = fs::read_to_string(path);
+    if let Err(err) = result {
+        println!("{}", err);
+        return;
+    }
+
+    let code = result.unwrap();
+
+    let mut interpreter = VirtualMachine::new();
+    let offset = 0 as Instruction;
+
+    let program = compiler::compile(&code).unwrap();
+
+    interpreter.load_program(program);
+    interpreter.start_vm(offset);
 }

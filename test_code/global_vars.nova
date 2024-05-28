@@ -1,0 +1,8 @@
+a := 4
+b := a*a
+c := b * a
+d := 100
+e := a + b + c + d
+
+a = e*b
+println(a)

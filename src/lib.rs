@@ -9,3 +9,5 @@ pub mod program;
 pub mod register;
 pub mod version;
 pub mod compiler;
+
+mod tests;

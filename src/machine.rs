@@ -78,7 +78,7 @@ impl VirtualMachine {
         }
     }
 
-    pub fn start_vm(&mut self, offset: Instruction) {
+    pub fn start_vm(&mut self, offset: Instruction) -> u32 {
         self.running = true;
         self.registers[RegisterID::RPC as usize].value = offset + PC_START;
 
@@ -92,9 +92,10 @@ impl VirtualMachine {
 
             if self.check_error() {
                 self.print_error();
-                break;
+                return 1;
             }
         }
+        return 0;
     }
 
     fn execute_instruction(&mut self, instruction: Instruction) {

@@ -1,5 +1,5 @@
 
-use std::collections::HashMap;
+use std::{collections::HashMap, ops::Index};
 
 use nova_tw::language::{Expression, ExpressionVisitor, Object, Statement, StatementVisitor, TokenType};
 
@@ -11,7 +11,9 @@ pub struct BytecodeGenerator {
     temp_stack: Vec<()>,
     frame_stack: Vec<()>,
     global_variables: HashMap<String, u32>,
-    local_var_stack: Vec<HashMap<String, u32>>
+    local_variable_count: u32,
+    local_variable_indices: Vec<HashMap<String, u32>>,
+    scope: u32,
 }
 
 impl BytecodeGenerator {
@@ -22,7 +24,9 @@ impl BytecodeGenerator {
             temp_stack: Vec::new(),
             frame_stack: Vec::new(),
             global_variables: HashMap::new(),
-            local_var_stack: Vec::new(),
+            local_variable_count: 0,
+            local_variable_indices: Vec::new(),
+            scope: 0,
         }
     }
 
@@ -62,6 +66,37 @@ impl BytecodeGenerator {
             self.program.immutables.push(immutable.clone());
             self.program.immutables.len() as Instruction - 1
         }
+    }
+
+    fn allocate_local(&mut self, name: &str) -> Instruction {
+        let index = self.local_variable_count;
+        self.local_variable_count += 1;
+
+        let map = self.local_variable_indices.last_mut();
+        if map.is_none() {
+            self.generate_error("Error allocating local variable".to_string());
+            return 0;
+        }
+
+        let map = map.unwrap();
+        map.insert(name.to_string(), index);
+
+        index
+    }
+
+    fn get_local_index(&mut self, name: &str) -> Option<Instruction> { 
+        let mut scope = self.local_variable_indices.len() as isize - 1;
+
+        while scope >= 0 {
+            let map = self.local_variable_indices.get(scope as usize).unwrap();
+            if let Some(&value)  = map.get(name) {
+                return Some(value);
+            }
+
+            scope -= 1;
+        }
+        
+        None
     }
 }
 
@@ -173,37 +208,39 @@ impl ExpressionVisitor for BytecodeGenerator {
     }
 
     fn visit_variable(&mut self, variable: &nova_tw::language::variable::Variable) -> Self::Output {
-        if self.frame_stack.len() == 0 {// global scope
-            let name = variable.name.object.to_string();
-            let name = NovaObject::String(Box::new(name));
-            
-            let name_index = self.get_immutable_index(&name);
-
+        let name = variable.name.object.to_string();
+        if let Some(index) = self.get_local_index(name.as_str()) {
             let destination = self.temp_stack.len() as Instruction;
-            self.program.instructions.push(InstructionBuilder::new_load_global_indirect(destination, name_index));
+            self.program.instructions.push(InstructionBuilder::new_load_local(destination, index));
             self.temp_stack.push(());
             return;
         }
-
-        self.error = Some(format!("Local variable access not implemented yet"));
+        
+        let name = NovaObject::String(Box::new(name));
+        let name_index = self.get_immutable_index(&name);
+        let destination = self.temp_stack.len() as Instruction;
+        self.program.instructions.push(InstructionBuilder::new_load_global_indirect(destination, name_index));
+        self.temp_stack.push(());
+        return;
     }
 
     fn visit_assign(&mut self, assign: &nova_tw::language::assignment::Assign) -> Self::Output {
         self.evaluate(&assign.value);
+        let name = assign.name.object.to_string();
 
-        if self.frame_stack.len() == 0 {// global scope
-            let name = assign.name.object.to_string();
-            let name = NovaObject::String(Box::new(name));
-            
-            let name_index = self.get_immutable_index(&name);
-
+        if let Some(index) = self.get_local_index(name.as_str()) { // check if variable is a local
             let source = self.temp_stack.len() as Instruction - 1;
             self.temp_stack.pop();
-            self.program.instructions.push(InstructionBuilder::new_store_global_indirect(source, name_index));
+            self.program.instructions.push(InstructionBuilder::new_store_local(source, index));
             return;
         }
+        
 
-        self.error = Some(format!("Local variable assignment not implemented yet"));
+        let name = NovaObject::String(Box::new(name));
+        let name_index = self.get_immutable_index(&name);
+        let source = self.temp_stack.len() as Instruction - 1;
+        self.temp_stack.pop();
+        self.program.instructions.push(InstructionBuilder::new_store_global_indirect(source, name_index));
     }
 
     fn visit_get(&mut self, get: &nova_tw::language::assignment::Get) -> Self::Output {
@@ -231,7 +268,21 @@ impl StatementVisitor for BytecodeGenerator {
     }
 
     fn visit_block(&mut self, block: &nova_tw::language::Block) -> Self::Output {
-        todo!()
+        self.scope += 1;
+        self.local_variable_indices.push(HashMap::new());
+        self.program.instructions.push(InstructionBuilder::new_allocate_local(1)); // placeholder instruction
+        let placeholder_index = self.program.instructions.len() as Instruction - 1;
+
+        for statement in &block.statements {
+            self.execute(statement);
+        }
+
+        let indices =self.local_variable_indices.pop().unwrap();
+        let num_locals = indices.len();
+        self.program.instructions[placeholder_index  as usize] = InstructionBuilder::new_allocate_local(num_locals as Instruction);
+        self.program.instructions.push(InstructionBuilder::new_deallocate_local(num_locals as Instruction));
+
+        self.scope -= 1;
     }
 
     fn visit_function_statement(&mut self, function_statement: &nova_tw::language::function::FunctionStatement) -> Self::Output {
@@ -249,8 +300,9 @@ impl StatementVisitor for BytecodeGenerator {
             initialized = true;
         }
 
-        if self.frame_stack.len() == 0 {// global scope
-            let name_str = var_declaration.name.object.to_string();
+        let name_str = var_declaration.name.object.to_string();
+        if self.scope == 0 {// global scope
+           
             let name = NovaObject::String(Box::new(name_str.clone()));
             
             let name_index = self.get_immutable_index(&name);
@@ -265,7 +317,12 @@ impl StatementVisitor for BytecodeGenerator {
             return;
         }
 
-        self.generate_error(format!("declaring local variables not implemented"));
+        let index = self.allocate_local(name_str.as_str());
+        if initialized {
+            let source = self.temp_stack.len() as Instruction - 1;
+            self.temp_stack.pop();
+            self.program.instructions.push(InstructionBuilder::new_store_local(source, index));
+        }
     }
 
     fn visit_expression_statement(&mut self, expression_statement: &nova_tw::language::Expression) -> Self::Output {
