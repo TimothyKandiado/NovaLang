@@ -1,5 +1,5 @@
 
-use std::{collections::HashMap, ops::Index};
+use std::collections::HashMap;
 
 use nova_tw::language::{Expression, ExpressionVisitor, Object, Statement, StatementVisitor, TokenType};
 
@@ -9,7 +9,7 @@ pub struct BytecodeGenerator {
     program: Program,
     error: Option<String>,
     temp_stack: Vec<()>,
-    frame_stack: Vec<()>,
+    _frame_stack: Vec<()>,
     global_variables: HashMap<String, u32>,
     local_variable_count: u32,
     local_variable_indices: Vec<HashMap<String, u32>>,
@@ -22,7 +22,7 @@ impl BytecodeGenerator {
             program: Program::default(),
             error: None,
             temp_stack: Vec::new(),
-            frame_stack: Vec::new(),
+            _frame_stack: Vec::new(),
             global_variables: HashMap::new(),
             local_variable_count: 0,
             local_variable_indices: Vec::new(),
@@ -254,11 +254,11 @@ impl ExpressionVisitor for BytecodeGenerator {
         self.program.instructions.push(InstructionBuilder::new_store_global_indirect(source, name_index));
     }
 
-    fn visit_get(&mut self, get: &nova_tw::language::assignment::Get) -> Self::Output {
+    fn visit_get(&mut self, _get: &nova_tw::language::assignment::Get) -> Self::Output {
         todo!()
     }
 
-    fn visit_set(&mut self, set: &nova_tw::language::assignment::Set) -> Self::Output {
+    fn visit_set(&mut self, _set: &nova_tw::language::assignment::Set) -> Self::Output {
         todo!()
     }
 }
@@ -270,7 +270,7 @@ impl StatementVisitor for BytecodeGenerator {
         todo!()
     }
 
-    fn visit_if(&mut self, if_statement: &nova_tw::language::IfStatement) -> Self::Output {
+    fn visit_if(&mut self, _if_statement: &nova_tw::language::IfStatement) -> Self::Output {
         todo!()
     }
 
@@ -312,11 +312,11 @@ impl StatementVisitor for BytecodeGenerator {
         self.scope -= 1;
     }
 
-    fn visit_function_statement(&mut self, function_statement: &nova_tw::language::function::FunctionStatement) -> Self::Output {
+    fn visit_function_statement(&mut self, _function_statement: &nova_tw::language::function::FunctionStatement) -> Self::Output {
         todo!()
     }
 
-    fn visit_return(&mut self, return_statement: &Option<nova_tw::language::Expression>) -> Self::Output {
+    fn visit_return(&mut self, _return_statement: &Option<nova_tw::language::Expression>) -> Self::Output {
         todo!()
     }
 
@@ -356,11 +356,11 @@ impl StatementVisitor for BytecodeGenerator {
         self.evaluate(expression_statement);
     }
 
-    fn visit_class_statement(&mut self, class_statement: &nova_tw::language::class::ClassStatement) -> Self::Output {
+    fn visit_class_statement(&mut self, _class_statement: &nova_tw::language::class::ClassStatement) -> Self::Output {
         todo!()
     }
 
-    fn visit_include(&mut self, include: &nova_tw::language::Include) -> Self::Output {
+    fn visit_include(&mut self, _include: &nova_tw::language::Include) -> Self::Output {
         todo!()
     }
 }
