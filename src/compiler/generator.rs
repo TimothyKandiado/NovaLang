@@ -98,6 +98,13 @@ impl BytecodeGenerator {
         
         None
     }
+
+    /// add an instruction to the program and return it's index
+    fn add_instruction(&mut self, instruction: Instruction) -> Instruction {
+        let index = self.program.instructions.len();
+        self.program.instructions.push(instruction);
+        index as Instruction
+    }
 }
 
 impl ExpressionVisitor for BytecodeGenerator {
@@ -114,6 +121,9 @@ impl ExpressionVisitor for BytecodeGenerator {
             TokenType::Slash => OpCode::Div,
             TokenType::Star => OpCode::Mul,
             TokenType::Caret => OpCode::Pow,
+            TokenType::Less => OpCode::Less,
+            TokenType::LessEqual => OpCode::LessEqual,
+            
             
             _ => {
                 self.generate_error(format!("[Unhandled binary operator: {:?}]", binary.operator.token_type));
@@ -194,11 +204,12 @@ impl ExpressionVisitor for BytecodeGenerator {
             }
 
             if name == "println" {
-                for argument in &function.arguments {
+                for (index, argument) in function.arguments.iter().enumerate() {
                     self.evaluate(argument);
                     let source = self.temp_stack.len() as Instruction - 1;
                     self.temp_stack.pop();
-                    self.program.instructions.push(InstructionBuilder::new_print_instruction(source, true));
+                    let newline = if index == function.arguments.len() - 1 { true } else { false };
+                    self.program.instructions.push(InstructionBuilder::new_print_instruction(source, newline));
                 }
                 return;
             }
@@ -264,7 +275,23 @@ impl StatementVisitor for BytecodeGenerator {
     }
 
     fn visit_while(&mut self, while_loop: &nova_tw::language::WhileLoop) -> Self::Output {
-        todo!()
+        let loop_start = self.program.instructions.len() as Instruction;
+        self.evaluate(&while_loop.condition);
+        let source = self.temp_stack.len() as Instruction - 1;
+        self.temp_stack.pop();
+
+        self.add_instruction(InstructionBuilder::new_jump_false_instruction(source));
+        let jump_loop_index = self.add_instruction(InstructionBuilder::new_jump_instruction(1, true));
+
+        self.execute(&while_loop.body);
+
+        let current_index = self.program.instructions.len() as Instruction - 1;
+        let back_offset = current_index - loop_start;
+
+        self.add_instruction(InstructionBuilder::new_jump_instruction(back_offset, false));
+        let current_index = self.program.instructions.len() as Instruction - 1;
+        let jump_forward_offset = current_index - jump_loop_index;
+        self.program.instructions[jump_loop_index as usize] = InstructionBuilder::new_jump_instruction(jump_forward_offset+1, true);
     }
 
     fn visit_block(&mut self, block: &nova_tw::language::Block) -> Self::Output {

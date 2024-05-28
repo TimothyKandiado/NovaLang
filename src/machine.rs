@@ -288,12 +288,12 @@ impl VirtualMachine {
             RegisterValueKind::MemAddress => {
                 let address = register.value;
                 let object = self.get_object_from_memory(address);
-                print!("{:?}", object);
+                print!("{}", object);
             }
 
             RegisterValueKind::ImmAddress => {
                 let immutable = &self.immutables[register.value as usize];
-                print!("{:?}", immutable);
+                print!("{}", immutable);
             }
         }
         if newline == 1 {

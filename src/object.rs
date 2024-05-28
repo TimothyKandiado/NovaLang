@@ -1,4 +1,4 @@
-use std::collections::HashMap;
+use std::{collections::HashMap, fmt::Display};
 
 use crate::instruction::Instruction;
 
@@ -10,6 +10,15 @@ pub type MappedMemory = HashMap<ValueID, Instruction>;
 pub enum NovaObject {
     None,
     String(Box<String>),
+}
+
+impl Display for NovaObject {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            NovaObject::None => write!(f, "None"),
+            NovaObject::String(string) => write!(f, "{}", string),
+        }
+    }
 }
 
 #[derive(Debug, Clone, Copy)]
