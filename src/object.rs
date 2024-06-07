@@ -7,8 +7,17 @@ pub type BaseNumber = f32;
 pub type MappedMemory = HashMap<ValueID, Instruction>;
 
 #[derive(Debug, Clone, PartialEq, PartialOrd)]
+pub struct NovaFunction {
+    pub name: Box<String>,
+    pub address: Instruction,
+    pub arity: Instruction,
+    pub is_method: bool,
+}
+
+#[derive(Debug, Clone, PartialEq, PartialOrd)]
 pub enum NovaObject {
     None,
+    NovaFunction(NovaFunction),
     String(Box<String>),
 }
 
@@ -17,9 +26,11 @@ impl Display for NovaObject {
         match self {
             NovaObject::None => write!(f, "None"),
             NovaObject::String(string) => write!(f, "{}", string),
+            NovaObject::NovaFunction(nova_function ) => write!(f, "function: {}", nova_function.name),
         }
     }
 }
+
 
 #[derive(Debug, Clone, Copy)]
 pub enum RegisterValueKind {

@@ -65,7 +65,7 @@ pub enum OpCode {
     /// Print value in register
     Print,
     /// Call a function
-    Call,
+    CallIndirect,
     /// While loop
     While,
     /// Unconditional Loop
@@ -74,8 +74,10 @@ pub enum OpCode {
     Break,
     /// Push new stack frame
     NewFrame,
-    /// Return function value
-    Return,
+    /// Return null
+    ReturnNone,
+    /// Return value
+    ReturnVal,
 
     Halt,
 }

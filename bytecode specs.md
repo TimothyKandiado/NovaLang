@@ -42,8 +42,10 @@ Print content of SR1 to stdout
 ## HALT
 Stop program execution
 
-## CALL IMM
+## CALL_INDIRECT SR1 IMM
 Perform a operation
+SR1 defines number of registers passed as parameters
+IMM defines the function index in immutables array
 
 ## NewFrame
 Creates a new call frame

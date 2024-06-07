@@ -219,7 +219,7 @@ impl VirtualMachine {
 
             x if x == OpCode::NewFrame as u32 => self.new_frame(),
 
-            x if x == OpCode::Return as u32 => self.drop_frame(),
+            x if x == OpCode::ReturnNone as u32 => self.drop_frame(),
 
             // IO
             x if x == OpCode::Print as u32 => {
@@ -1072,10 +1072,10 @@ impl VirtualMachine {
     #[cfg(feature = "debug")]
     fn debug(&self) {
         #[cfg(feature = "dbg_code")]
-        debug_instruction(
+        println!("{}", debug_instruction(
             &self.instructions,
             self.registers[RegisterID::RPC as usize].value,
-        );
+        ));
         #[cfg(feature = "verbose")]
         self.print_register_values();
         #[cfg(feature = "dbg_global")]

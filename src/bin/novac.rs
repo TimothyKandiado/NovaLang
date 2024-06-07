@@ -1,17 +1,35 @@
-use nova::{compiler, machine::VirtualMachine};
+use std::{env, fs};
+
+use nova::{compiler, debug::debug_instruction, instruction::Instruction, program::Program};
 
 fn main() {
-    //let source = "1 + 5 * 7\n";
-    test_block_locals();
+    let args: Vec<String> = env::args().collect::<Vec<String>>();
+    if args.len() > 1 {
+        run_file(&args[1], &args);
+    } else {
+        println!("Error: an argument is required");
+        std::process::exit(1);
+    }
 }
 
-fn test_block_locals() {
-    let source = "block\na := 10\nb := 20\nprintln(a*b)\nend\n";
-    let program = compiler::compile(source).unwrap();
+fn run_file(path: &str, _arguments: &Vec<String>) {
+    let result = fs::read_to_string(path);
+    if let Err(err) = result {
+        println!("{}", err);
+        return;
+    }
 
-    let mut vm = VirtualMachine::new();
-    let offset = 0u32;
-    vm.load_program(program);
-    let code = vm.start_vm(offset);
-    assert_eq!(code, 0);
+    let code = result.unwrap();
+
+    let program = compiler::compile(&code).unwrap();
+
+    debug_code(program);
+}
+
+fn debug_code(program: Program) {
+    println!("Instructions");
+    for (index, _) in program.instructions.iter().enumerate() {
+        let instruction_dbg = debug_instruction(&program.instructions, index as Instruction);
+        println!("[{}]: {}", index, instruction_dbg);
+    }
 }

@@ -6,7 +6,7 @@ use std::{
     io::{BufReader, Write},
 };
 
-use crate::{instruction::Instruction, object::NovaObject, program::Program, version};
+use crate::{instruction::Instruction, object::{NovaFunction, NovaObject}, program::Program, version};
 
 #[derive(Debug)]
 struct FileError {
@@ -31,6 +31,7 @@ pub struct Metadata {
 #[repr(u8)]
 enum ImmutableKind {
     String,
+    NovaFunction,
 }
 
 pub fn write_program_file(path: &str, program: &Program) -> Result<(), Box<dyn Error>> {
@@ -82,6 +83,17 @@ fn write_immutables(program: &Program, buffer: &mut Vec<u8>) -> Result<(), Box<d
                 let length = string.len();
                 buffer.write_u64::<LittleEndian>(length as u64)?; // write size
                 let bytes = string.as_bytes();
+                buffer.write(bytes)?;
+            }
+
+            NovaObject::NovaFunction(function) => {
+                buffer.write_u8(ImmutableKind::NovaFunction as u8)?; // write a type
+                buffer.write_u32::<LittleEndian>(function.address)?;
+                buffer.write_u8(function.arity as u8)?;
+                buffer.write_u8(function.is_method as u8)?;
+                let length = function.name.len();
+                buffer.write_u64::<LittleEndian>(length as u64)?; 
+                let bytes = function.name.as_bytes();
                 buffer.write(bytes)?;
             }
 
@@ -177,6 +189,27 @@ pub fn read_immutables(
 
                 let string = String::from_utf8(str_buffer)?;
                 immutables.push(NovaObject::String(Box::new(string)))
+            }
+
+            x if x == ImmutableKind::NovaFunction as u8 => {
+                let address = reader.read_u32::<LittleEndian>()?;
+                let arity = reader.read_u8()? as Instruction;
+                let is_method = reader.read_u8()? != 0;
+                let length = reader.read_u64::<LittleEndian>()?;
+                let mut str_buffer = Vec::with_capacity(length as usize);
+                for _ in 0..length {
+                    let byte = reader.read_u8()?;
+                    str_buffer.push(byte);
+                }
+
+                let name = Box::new(String::from_utf8(str_buffer)?);
+
+                immutables.push(NovaObject::NovaFunction(NovaFunction {
+                    name,
+                    address,
+                    arity,
+                    is_method,
+                }))
             }
 
             _ => {

@@ -3,7 +3,7 @@ use std::collections::HashMap;
 
 use nova_tw::language::{Expression, ExpressionVisitor, Object, Statement, StatementVisitor, TokenType};
 
-use crate::{bytecode::OpCode, instruction::{Instruction, InstructionBuilder}, object::NovaObject, program::Program};
+use crate::{bytecode::OpCode, instruction::{Instruction, InstructionBuilder}, object::{NovaFunction, NovaObject}, program::Program};
 
 pub struct BytecodeGenerator {
     program: Program,
@@ -351,8 +351,53 @@ impl StatementVisitor for BytecodeGenerator {
         self.scope -= 1;
     }
 
-    fn visit_function_statement(&mut self, _function_statement: &nova_tw::language::function::FunctionStatement) -> Self::Output {
+    fn visit_function_statement(&mut self, function_statement: &nova_tw::language::function::FunctionStatement) -> Self::Output {
+        self.scope += 1;
+        self.local_variable_indices.push(HashMap::new());
+
+        let current_instruction_index = self.program.instructions.len() as Instruction; 
+        let function_immutable = NovaObject::NovaFunction(
+            NovaFunction{
+                name: Box::new(function_statement.name.object.to_string()),
+                address: current_instruction_index,
+                arity: function_statement.parameters.len() as Instruction,
+                is_method: false
+            }
+        );
+
+        let string_immutable = NovaObject::String(
+            Box::new(function_statement.name.object.to_string())
+        );
+
+        let _ = self.get_immutable_index(&string_immutable);
+        let _ = self.get_immutable_index(&function_immutable);
         
+        //self.add_instruction(InstructionBuilder::new_call_indirect_instruction(number_of_parameters, function_name_index));
+        let mut parameter_locals = Vec::new();
+
+        // loop through the parameter list and allocate local variables
+        for parameter in &function_statement.parameters {
+            let index = self.allocate_local(parameter.object.to_string().as_str());
+            parameter_locals.push(index);
+        }
+
+        let place_holder = self.add_instruction(InstructionBuilder::new_allocate_local(1 as Instruction));
+        
+        for (register_index, &local_index) in parameter_locals.iter().enumerate() {
+            self.add_instruction(InstructionBuilder::new_store_local(register_index as Instruction, local_index));
+        }
+
+        for statement in function_statement.body.statements.iter() {
+            self.execute(statement);
+        }
+
+        let indices =self.local_variable_indices.pop().unwrap();
+        let num_locals = indices.len();
+
+        self.program.instructions[place_holder as usize] = InstructionBuilder::new_allocate_local(num_locals as Instruction);
+        self.add_instruction(InstructionBuilder::new_deallocate_local(num_locals as Instruction));
+        self.add_instruction(InstructionBuilder::new_return_none_instruction());
+        self.scope -= 1;
     }
 
     fn visit_return(&mut self, _return_statement: &Option<nova_tw::language::Expression>) -> Self::Output {

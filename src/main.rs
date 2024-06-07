@@ -42,7 +42,7 @@ fn get_program() -> Program {
         InstructionBuilder::new_print_instruction(1, true),
         // End Frame
         InstructionBuilder::new_deallocate_local(2),
-        InstructionBuilder::new().add_opcode(OpCode::Return).build(),
+        InstructionBuilder::new().add_opcode(OpCode::ReturnNone).build(),
 
         InstructionBuilder::new_load_local(0, 0),
         InstructionBuilder::new_load_local(1, 1),

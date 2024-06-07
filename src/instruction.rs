@@ -89,6 +89,14 @@ impl InstructionBuilder {
             .build()
     }
 
+    pub fn new_call_indirect_instruction(parameter_number: Instruction, function_index: Instruction) -> Instruction {
+        InstructionBuilder::new()
+            .add_opcode(OpCode::CallIndirect)
+            .add_source_register_1(function_index)
+            .add_address_small(parameter_number)
+            .build()
+    }
+
     pub fn new_load_bool(destination: Instruction, value: Instruction) -> Instruction {
         InstructionBuilder::new()
             .add_opcode(OpCode::LoadBool)
@@ -171,6 +179,19 @@ impl InstructionBuilder {
             .add_destination_register(newline as Instruction)
             .add_source_register_1(source)
             .build()
+    }
+
+    pub fn new_return_none_instruction() -> Instruction {
+        InstructionBuilder::new()
+        .add_opcode(OpCode::ReturnNone)
+        .build()
+    }
+
+    pub fn new_return_value(source: Instruction) -> Instruction {
+        InstructionBuilder::new()
+        .add_opcode(OpCode::ReturnNone)
+        .add_source_register_1(source)
+        .build()
     }
 
     pub fn new_halt_instruction() -> Instruction {
