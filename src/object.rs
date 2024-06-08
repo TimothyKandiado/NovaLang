@@ -21,12 +21,34 @@ pub enum NovaObject {
     String(Box<String>),
 }
 
+pub enum NovaCallable<'a> {
+    None,
+    Function(&'a NovaFunction)
+}
+
+impl NovaObject {
+    pub fn is_none(&self) -> bool {
+        matches!(self, NovaObject::None)
+    }
+
+    pub fn is_string(&self) -> bool {
+        matches!(self, NovaObject::String(_))
+    }
+
+    pub fn is_callable(&self) -> bool {
+        matches!(self, NovaObject::NovaFunction(_))
+    }
+}
+
 impl Display for NovaObject {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
             NovaObject::None => write!(f, "None"),
             NovaObject::String(string) => write!(f, "{}", string),
-            NovaObject::NovaFunction(nova_function ) => write!(f, "function: {}", nova_function.name),
+            NovaObject::NovaFunction(nova_function ) => {
+                
+                write!(f, "function: {}, parameters: {}", nova_function.name, nova_function.arity)
+            },
         }
     }
 }

@@ -92,8 +92,8 @@ impl InstructionBuilder {
     pub fn new_call_indirect_instruction(parameter_number: Instruction, function_index: Instruction) -> Instruction {
         InstructionBuilder::new()
             .add_opcode(OpCode::CallIndirect)
-            .add_source_register_1(function_index)
-            .add_address_small(parameter_number)
+            .add_source_register_1(parameter_number)
+            .add_address_small(function_index)
             .build()
     }
 

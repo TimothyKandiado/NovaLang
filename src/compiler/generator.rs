@@ -233,9 +233,20 @@ impl ExpressionVisitor for BytecodeGenerator {
                 }
                 return;
             }
+
+            for argument in &function.arguments {
+                self.evaluate(argument);
+            }
+    
+            let parameters = function.arguments.len() as Instruction;
+    
+            let name_index = self.get_immutable_index(&NovaObject::String(Box::new(name)));
+            self.program.instructions.push(InstructionBuilder::new_call_indirect_instruction(parameters, name_index));
+            return;
         }
 
-        self.generate_error(format!("Function calls not implemented yet"));
+        
+        self.generate_error(format!("Error compiling function call"));
     }
 
     fn visit_variable(&mut self, variable: &nova_tw::language::variable::Variable) -> Self::Output {
@@ -352,6 +363,7 @@ impl StatementVisitor for BytecodeGenerator {
     }
 
     fn visit_function_statement(&mut self, function_statement: &nova_tw::language::function::FunctionStatement) -> Self::Output {
+        let jump_index = self.add_instruction(0 as Instruction); // placeholder instruction
         self.scope += 1;
         self.local_variable_indices.push(HashMap::new());
 
@@ -398,6 +410,8 @@ impl StatementVisitor for BytecodeGenerator {
         self.add_instruction(InstructionBuilder::new_deallocate_local(num_locals as Instruction));
         self.add_instruction(InstructionBuilder::new_return_none_instruction());
         self.scope -= 1;
+        let current = self.program.instructions.len() as Instruction;
+        self.program.instructions[jump_index as usize] = InstructionBuilder::new_jump_instruction(current - jump_index, true);
     }
 
     fn visit_return(&mut self, _return_statement: &Option<nova_tw::language::Expression>) -> Self::Output {

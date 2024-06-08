@@ -2,7 +2,7 @@ use crate::{
     bytecode::OpCode,
     frame::Frame,
     instruction::{Instruction, InstructionBuilder, InstructionDecoder},
-    object::{MappedMemory, NovaObject, RegisterValueKind},
+    object::{MappedMemory, NovaCallable, NovaObject, RegisterValueKind},
     program::Program,
     register::{Register, RegisterID},
 };
@@ -80,7 +80,12 @@ impl VirtualMachine {
 
     pub fn start_vm(&mut self, offset: Instruction) -> u32 {
         self.running = true;
-        self.registers[RegisterID::RPC as usize].value = offset + PC_START;
+        let program_counter = Register {
+            kind: RegisterValueKind::MemAddress,
+            value: offset + PC_START
+        };
+
+        self.registers[RegisterID::RPC as usize] = program_counter;
 
         while self.running {
             #[cfg(feature = "debug")]
@@ -217,9 +222,16 @@ impl VirtualMachine {
                 self.jump(instruction);
             }
 
+            x if x == OpCode::CallIndirect as u32 => {
+                self.call_indirect(instruction);
+            }
+
             x if x == OpCode::NewFrame as u32 => self.new_frame(),
 
-            x if x == OpCode::ReturnNone as u32 => self.drop_frame(),
+            x if x == OpCode::ReturnNone as u32 => self.return_none(),
+
+            x if x == OpCode::ReturnVal as u32 => self.return_val(instruction),
+
 
             // IO
             x if x == OpCode::Print as u32 => {
@@ -265,11 +277,79 @@ impl VirtualMachine {
                 self.running = false;
                 return;
             }
-            self.registers[RegisterID::RPC as usize].value = frame.return_address + 1;
+            self.registers[RegisterID::RPC as usize].value = frame.return_address;
             self.registers[RegisterID::RLO as usize].value = frame.local_offset;
         } else {
             self.running = false;
         }
+    }
+
+    #[inline(always)]
+    fn call_indirect(&mut self, instruction: Instruction) {
+        self.new_frame();
+
+        let call_index = InstructionDecoder::decode_immutable_address_small(instruction);
+        let call_object = &self.immutables[call_index as usize];
+
+        // if call points to a string
+        // find a callable object with that name
+        if let NovaObject::String(call_name) = call_object {
+            let callables = self.immutables.iter()
+            .filter(|immutable|  {
+                immutable.is_callable()
+            })
+            .map(|nova_object| {
+                if let NovaObject::NovaFunction(function) = nova_object {
+                    NovaCallable::Function(function)
+                }
+                else {
+                    NovaCallable::None
+                }
+            }).collect::<Vec<_>>();
+
+            let callable = callables.iter().find(|callable| {
+                match callable {
+                    NovaCallable::Function(function) => function.name == *call_name,
+                    NovaCallable::None => false
+                }
+            });
+
+            if let Some(callable) = callable {
+                match callable {
+                    NovaCallable::Function(function) => {
+                        let address = function.address;
+                        let num_arguments = InstructionDecoder::decode_source_register_1(instruction);
+
+                        if num_arguments != function.arity {
+                            self.emit_error_with_message(&format!("Not enough function arguments.\n{} are required\n{} were provided", function.arity, num_arguments));
+                            return;
+                        }
+
+                        println!("Jumping to address: {}", address);
+                        self.registers[RegisterID::RPC as usize].value = address;
+                        return;
+                    }
+
+                    NovaCallable::None => {
+                        self.emit_error_with_message("Called a None Value");
+                        return;
+                    }
+                }
+            }
+
+            self.emit_error_with_message(&format!("No callable by the name: '{}' was found", call_name));
+            return;
+        }
+    }
+
+    #[inline(always)]
+    fn return_none(&mut self) {
+        self.drop_frame();
+    }
+
+    #[inline(always)]
+    fn return_val(&mut self, _instruction: Instruction) {
+        let _frame = self.drop_frame();
     }
 
     #[inline(always)]
@@ -682,6 +762,8 @@ impl VirtualMachine {
         }
     }
 
+    
+
     #[inline(always)]
     fn jump_if_false(&mut self, instruction: Instruction) {
         let source = InstructionDecoder::decode_source_register_1(instruction);
@@ -1071,11 +1153,14 @@ impl VirtualMachine {
 
     #[cfg(feature = "debug")]
     fn debug(&self) {
-        #[cfg(feature = "dbg_code")]
-        println!("{}", debug_instruction(
-            &self.instructions,
-            self.registers[RegisterID::RPC as usize].value,
-        ));
+        #[cfg(feature = "dbg_code")] 
+        {
+            let current = self.registers[RegisterID::RPC as usize].value;
+            println!("[{}]: {}", current, debug_instruction(
+                &self.instructions,
+                self.registers[RegisterID::RPC as usize].value,
+            ));
+        }
         #[cfg(feature = "verbose")]
         self.print_register_values();
         #[cfg(feature = "dbg_global")]
@@ -1086,6 +1171,17 @@ impl VirtualMachine {
         self.print_identifiers();
         #[cfg(feature = "dbg_memory")]
         self.print_memory();
+        #[cfg(feature = "verbose")]
+        Self::wait_for_input();
+    }
+
+    #[cfg(feature = "debug")]
+    fn wait_for_input() {
+        use std::io;
+
+        let mut buffer = String::new();
+        let _ = io::stdin().read_line(&mut buffer);
+
     }
 
     #[cfg(feature = "verbose")]

@@ -60,8 +60,8 @@ impl Display for Register {
             }
 
             RegisterValueKind::None => format!("{:<10}", "None"),
-            RegisterValueKind::MemAddress => format!("{:<10} : {:>#10x}", "MemAddress", self.value),
-            RegisterValueKind::ImmAddress => format!("{:<10} : {:>#10x}", "ImmAddress", self.value),
+            RegisterValueKind::MemAddress => format!("{:<10} : {:>#10x} | {:>10}", "MemAddress", self.value, self.value),
+            RegisterValueKind::ImmAddress => format!("{:<10} : {:>#10x} | {:>10}", "ImmAddress", self.value, self.value),
         };
 
         write!(f, "{}", description)

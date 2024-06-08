@@ -1,0 +1,17 @@
+fn add(a, b)
+    ans := a + b
+    println(ans)
+end
+
+fn sub(c, d)
+    ans := c - d
+    println(ans)
+end
+
+f := 88
+g := -100
+
+
+add(f, g)
+sub(g, f)
+

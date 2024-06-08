@@ -155,7 +155,7 @@ pub fn debug_instruction(instructions: &Vec<Instruction>, instruction_pointer: I
         x if x == OpCode::CallIndirect as u32 => {
             let parameters = InstructionDecoder::decode_source_register_1(instruction);
             let name_address = InstructionDecoder::decode_immutable_address_small(instruction);
-            
+
             return format!("CALL_INDIRECT {} {}", parameters, name_address);
         }
 
@@ -178,13 +178,19 @@ pub fn debug_instruction(instructions: &Vec<Instruction>, instruction_pointer: I
             let source1 = InstructionDecoder::decode_source_register_1(instruction);
             let source2 = InstructionDecoder::decode_source_register_2(instruction);
 
-            return format!("And {} {}", source1, source2);
+            return format!("AND {} {}", source1, source2);
         }
 
         x if x == OpCode::Not as u32 => {
             let source1 = InstructionDecoder::decode_source_register_1(instruction);
 
-            return format!("Not {}", source1);
+            return format!("NOT {}", source1);
+        }
+
+        x if x == OpCode::Neg as u32 => {
+            let source1 = InstructionDecoder::decode_source_register_1(instruction);
+
+            return format!("NEGATE {}", source1);
         }
 
         _ => return format!("Unsupported opcode instruction ({:#x})", opcode),
