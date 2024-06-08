@@ -325,7 +325,7 @@ impl VirtualMachine {
                             return;
                         }
 
-                        println!("Jumping to address: {}", address);
+                        
                         self.registers[RegisterID::RPC as usize].value = address;
                         return;
                     }

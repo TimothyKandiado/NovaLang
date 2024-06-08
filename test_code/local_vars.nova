@@ -5,3 +5,9 @@ block
     b := 20
     println(a*b*pi)
 end
+
+block
+    g:= 7
+    h:= 88
+    println(g*pi/h)
+end

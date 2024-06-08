@@ -360,6 +360,7 @@ impl StatementVisitor for BytecodeGenerator {
         self.program.instructions.push(InstructionBuilder::new_deallocate_local(num_locals as Instruction));
 
         self.scope -= 1;
+        self.local_variable_count -= num_locals as u32;
     }
 
     fn visit_function_statement(&mut self, function_statement: &nova_tw::language::function::FunctionStatement) -> Self::Output {
@@ -410,6 +411,8 @@ impl StatementVisitor for BytecodeGenerator {
         self.add_instruction(InstructionBuilder::new_deallocate_local(num_locals as Instruction));
         self.add_instruction(InstructionBuilder::new_return_none_instruction());
         self.scope -= 1;
+        self.local_variable_count -= num_locals as u32;
+
         let current = self.program.instructions.len() as Instruction;
         self.program.instructions[jump_index as usize] = InstructionBuilder::new_jump_instruction(current - jump_index, true);
     }
