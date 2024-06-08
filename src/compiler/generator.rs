@@ -242,6 +242,9 @@ impl ExpressionVisitor for BytecodeGenerator {
     
             let name_index = self.get_immutable_index(&NovaObject::String(Box::new(name)));
             self.program.instructions.push(InstructionBuilder::new_call_indirect_instruction(parameters, name_index));
+            for _ in &function.arguments {
+                self.temp_stack.pop();
+            }
             return;
         }
 
@@ -364,6 +367,7 @@ impl StatementVisitor for BytecodeGenerator {
     }
 
     fn visit_function_statement(&mut self, function_statement: &nova_tw::language::function::FunctionStatement) -> Self::Output {
+
         let jump_index = self.add_instruction(0 as Instruction); // placeholder instruction
         self.scope += 1;
         self.local_variable_indices.push(HashMap::new());
@@ -392,12 +396,14 @@ impl StatementVisitor for BytecodeGenerator {
         for parameter in &function_statement.parameters {
             let index = self.allocate_local(parameter.object.to_string().as_str());
             parameter_locals.push(index);
+            
         }
 
         let place_holder = self.add_instruction(InstructionBuilder::new_allocate_local(1 as Instruction));
         
         for (register_index, &local_index) in parameter_locals.iter().enumerate() {
             self.add_instruction(InstructionBuilder::new_store_local(register_index as Instruction, local_index));
+            self.temp_stack.pop();
         }
 
         for statement in function_statement.body.statements.iter() {
@@ -415,6 +421,7 @@ impl StatementVisitor for BytecodeGenerator {
 
         let current = self.program.instructions.len() as Instruction;
         self.program.instructions[jump_index as usize] = InstructionBuilder::new_jump_instruction(current - jump_index, true);
+        // restore temp_stack to the way it was before function call.
     }
 
     fn visit_return(&mut self, _return_statement: &Option<nova_tw::language::Expression>) -> Self::Output {
