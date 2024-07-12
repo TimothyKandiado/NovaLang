@@ -226,8 +226,6 @@ impl VirtualMachine {
                 self.call_indirect(instruction);
             }
 
-            x if x == OpCode::NewFrame as u32 => self.new_frame(),
-
             x if x == OpCode::ReturnNone as u32 => self.return_none(),
 
             x if x == OpCode::ReturnVal as u32 => self.return_val(instruction),
@@ -253,14 +251,28 @@ impl VirtualMachine {
         self.set_value_in_register(destination, value);
     }
 
+    /// Clear the temporary value registers
     #[inline(always)]
-    fn new_frame(&mut self) {
+    fn clear_registers(&mut self) {
+        for index in 1..RegisterID::R9 as usize {
+            self.registers[index] = Register::empty();
+        }
+    }
+
+    #[inline(always)]
+    fn new_frame(&mut self) -> Frame {
         let return_address = self.registers[RegisterID::RPC as usize].value;
         let local_offset = self.registers[RegisterID::RLO as usize].value;
-        let frame = Frame::new(return_address, local_offset, false);
 
-        self.frames.push(frame);
+        let old_registers = self.registers.clone();
+        let frame = Frame::new(old_registers.clone(), return_address, local_offset, false);
+
+        self.frames.push(frame.clone());
+        self.clear_registers();
+
         self.increase_local_offset();
+
+        frame
     }
 
     #[inline(always)]
@@ -277,8 +289,10 @@ impl VirtualMachine {
                 self.running = false;
                 return;
             }
-            self.registers[RegisterID::RPC as usize].value = frame.return_address;
-            self.registers[RegisterID::RLO as usize].value = frame.local_offset;
+
+            self.registers = frame.registers;
+            //self.registers[RegisterID::RPC as usize].value = frame.return_address;
+            //self.registers[RegisterID::RLO as usize].value = frame.local_offset;
         } else {
             self.running = false;
         }
@@ -286,10 +300,18 @@ impl VirtualMachine {
 
     #[inline(always)]
     fn call_indirect(&mut self, instruction: Instruction) {
-        self.new_frame();
+        let old_frame = self.new_frame();
 
         let call_index = InstructionDecoder::decode_immutable_address_small(instruction);
         let call_object = &self.immutables[call_index as usize];
+
+        let argument_start = InstructionDecoder::decode_destination_register(instruction);
+        let argument_number = InstructionDecoder::decode_source_register_1(instruction);
+
+        // copy arguments from old frame to new frame
+        for index in argument_start..argument_start+argument_number  {
+            self.registers[index as usize] = old_frame.registers[index as usize];
+        }
 
         // if call points to a string
         // find a callable object with that name
@@ -344,11 +366,16 @@ impl VirtualMachine {
 
     #[inline(always)]
     fn return_none(&mut self) {
+        self.set_value_in_register(RegisterID::RRTN as Instruction, Register::empty());
         self.drop_frame();
     }
 
     #[inline(always)]
-    fn return_val(&mut self, _instruction: Instruction) {
+    fn return_val(&mut self, instruction: Instruction) {
+        let value_source = InstructionDecoder::decode_source_register_1(instruction);
+        let value_register = self.get_register(value_source);
+        self.set_value_in_register(RegisterID::RRTN as Instruction, value_register);
+
         let _frame = self.drop_frame();
     }
 

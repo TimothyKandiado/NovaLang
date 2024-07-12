@@ -234,6 +234,7 @@ impl ExpressionVisitor for BytecodeGenerator {
                 return;
             }
 
+            let parameter_start = self.temp_stack.len() as Instruction;
             for argument in &function.arguments {
                 self.evaluate(argument);
             }
@@ -241,7 +242,7 @@ impl ExpressionVisitor for BytecodeGenerator {
             let parameters = function.arguments.len() as Instruction;
     
             let name_index = self.get_immutable_index(&NovaObject::String(Box::new(name)));
-            self.program.instructions.push(InstructionBuilder::new_call_indirect_instruction(parameters, name_index));
+            self.program.instructions.push(InstructionBuilder::new_call_indirect_instruction(parameter_start, parameters, name_index));
             for _ in &function.arguments {
                 self.temp_stack.pop();
             }
@@ -424,8 +425,15 @@ impl StatementVisitor for BytecodeGenerator {
         // restore temp_stack to the way it was before function call.
     }
 
-    fn visit_return(&mut self, _return_statement: &Option<nova_tw::language::Expression>) -> Self::Output {
-        todo!()
+    fn visit_return(&mut self, return_statement: &Option<nova_tw::language::Expression>) -> Self::Output {
+        if let Some(value) = return_statement {
+            self.evaluate(value);
+            let source = self.temp_stack.len() as Instruction - 1; 
+            self.add_instruction(InstructionBuilder::new_return_value(source));
+            return;
+        }
+
+        self.add_instruction(InstructionBuilder::new_return_none_instruction());
     }
 
     fn visit_var_declaration(&mut self, var_declaration: &nova_tw::language::declaration::VariableDeclaration) -> Self::Output {

@@ -153,10 +153,11 @@ pub fn debug_instruction(instructions: &Vec<Instruction>, instruction_pointer: I
         }
 
         x if x == OpCode::CallIndirect as u32 => {
+            let parameter_start = InstructionDecoder::decode_destination_register(instruction);
             let parameters = InstructionDecoder::decode_source_register_1(instruction);
             let name_address = InstructionDecoder::decode_immutable_address_small(instruction);
 
-            return format!("CALL_INDIRECT {} {}", parameters, name_address);
+            return format!("CALL_INDIRECT {} {} {} ",parameter_start, parameters, name_address);
         }
 
         x if x == OpCode::ReturnNone as u32 => {

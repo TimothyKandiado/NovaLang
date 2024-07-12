@@ -64,7 +64,7 @@ pub enum OpCode {
     LoadLocal,
     /// Print value in register
     Print,
-    /// Call a function
+    /// Call a function [CALLINDIRECT DR:START_ARG SR1:NUM_ARG]
     CallIndirect,
     /// While loop
     While,

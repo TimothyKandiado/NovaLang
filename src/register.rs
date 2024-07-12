@@ -22,8 +22,8 @@ pub enum RegisterID {
     RPC,
     /// Conditionals
     RCND,
-    /// Control
-    RCNT,
+    /// Return
+    RRTN,
     /// Max number of general registers
     RMax = 16,
 }
@@ -37,6 +37,10 @@ pub struct Register {
 impl Register {
     pub fn new(kind: RegisterValueKind, value: Instruction) -> Self {
         Self { kind, value }
+    }
+
+    pub fn empty() -> Self {
+        Self {kind: RegisterValueKind::None, value: 0}
     }
 }
 
