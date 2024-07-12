@@ -1,6 +1,12 @@
 use std::{env, fs};
 
-use nova::{bytecode::OpCode, compiler, debug::debug_instruction, instruction::{Instruction, InstructionDecoder}, program::Program};
+use nova::{
+    bytecode::OpCode,
+    compiler,
+    debug::debug_instruction,
+    instruction::{Instruction, InstructionDecoder},
+    program::Program,
+};
 
 fn main() {
     let args: Vec<String> = env::args().collect::<Vec<String>>();
@@ -43,7 +49,6 @@ fn debug_code(program: &Program) {
 
         index += 1;
     }
-    
 }
 
 fn debug_immutables(program: &Program) {

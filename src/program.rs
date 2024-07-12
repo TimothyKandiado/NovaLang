@@ -7,6 +7,9 @@ pub struct Program {
 
 impl Default for Program {
     fn default() -> Self {
-        Self { instructions: Default::default(), immutables: Default::default() }
+        Self {
+            instructions: Default::default(),
+            immutables: Default::default(),
+        }
     }
 }

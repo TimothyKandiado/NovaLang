@@ -1,0 +1,18 @@
+fn add(a, b)
+    ans := a + b
+    return ans
+end
+
+fn sub(c, d)
+    ans := c - d
+    return ans
+end
+
+f := 88
+g := -100
+
+sum := add(f, g)
+diff := sub(g, f)
+
+println(sum)
+println(diff)

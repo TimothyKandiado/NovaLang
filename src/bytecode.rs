@@ -10,10 +10,10 @@ pub enum OpCode {
     LoadBool,
     /// Load float values into a register
     LoadFloat,
-    /// Store variable in memory
-    StoreV,
-    /// Load variable into a register
-    LoadV,
+    /// Load a return value (LOADRETURN DR SR1)
+    LoadReturn,
+    /// Clear return value in register
+    ClearReturn,
     /// Prepare an object method for calling
     This,
     /// Addition operator

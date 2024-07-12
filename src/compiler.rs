@@ -1,6 +1,5 @@
-
 mod generator;
-use nova_tw::language::{Scanner, errors, AstParser};
+use nova_tw::language::{errors, AstParser, Scanner};
 
 use crate::program::Program;
 
@@ -13,8 +12,8 @@ pub fn compile(source: &str) -> Result<Program, errors::Error> {
     let program = generator.generate_bytecode(&ast);
 
     if let Err(error) = program {
-        return Err(errors::Error::Interpret(error))
+        return Err(errors::Error::Interpret(error));
     }
-    
+
     Ok(program.unwrap())
 }

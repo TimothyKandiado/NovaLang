@@ -12,6 +12,7 @@ pub struct NovaFunction {
     pub address: Instruction,
     pub arity: Instruction,
     pub is_method: bool,
+    pub number_of_locals: Instruction,
 }
 
 #[derive(Debug, Clone, PartialEq, PartialOrd)]
@@ -23,7 +24,7 @@ pub enum NovaObject {
 
 pub enum NovaCallable<'a> {
     None,
-    Function(&'a NovaFunction)
+    Function(&'a NovaFunction),
 }
 
 impl NovaObject {
@@ -45,14 +46,16 @@ impl Display for NovaObject {
         match self {
             NovaObject::None => write!(f, "None"),
             NovaObject::String(string) => write!(f, "{}", string),
-            NovaObject::NovaFunction(nova_function ) => {
-                
-                write!(f, "function: {}, parameters: {}", nova_function.name, nova_function.arity)
-            },
+            NovaObject::NovaFunction(nova_function) => {
+                write!(
+                    f,
+                    "function: {}, parameters: {}",
+                    nova_function.name, nova_function.arity
+                )
+            }
         }
     }
 }
-
 
 #[derive(Debug, Clone, Copy)]
 pub enum RegisterValueKind {
@@ -66,7 +69,6 @@ pub enum RegisterValueKind {
     /// Index of object in immutables array
     ImmAddress,
 }
-
 
 impl RegisterValueKind {
     #[inline(always)]

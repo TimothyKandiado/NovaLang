@@ -1,4 +1,8 @@
-use std::{env, fs, io::{self, Write}, process::exit};
+use std::{
+    env, fs,
+    io::{self, Write},
+    process::exit,
+};
 
 use nova::{compiler, instruction::Instruction, machine::VirtualMachine};
 
@@ -31,9 +35,9 @@ fn repl() {
             println!("exiting");
             break;
         }
-        
+
         let program = compiler::compile(&input).unwrap();
-        let new_offset =  program.instructions.len() as Instruction;
+        let new_offset = program.instructions.len() as Instruction;
 
         interpreter.load_program(program);
         interpreter.start_vm(offset);

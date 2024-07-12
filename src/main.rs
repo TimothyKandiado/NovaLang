@@ -1,5 +1,5 @@
 use nova::{
-    bytecode::OpCode, instruction::InstructionBuilder, machine::VirtualMachine, program::Program
+    bytecode::OpCode, instruction::InstructionBuilder, machine::VirtualMachine, program::Program,
 };
 
 fn main() {
@@ -23,10 +23,10 @@ fn get_program() -> Program {
         InstructionBuilder::new_load_local(1, 1),
         InstructionBuilder::new_print_instruction(0, true),
         InstructionBuilder::new_print_instruction(1, true),
-        
-
         // New call frame
-        InstructionBuilder::new().add_opcode(OpCode::NewFrame).build(),
+        InstructionBuilder::new()
+            .add_opcode(OpCode::NewFrame)
+            .build(),
         InstructionBuilder::new_jump_instruction(2, true),
         InstructionBuilder::new_jump_instruction(14, true),
         InstructionBuilder::new_allocate_local(2),
@@ -42,16 +42,14 @@ fn get_program() -> Program {
         InstructionBuilder::new_print_instruction(1, true),
         // End Frame
         InstructionBuilder::new_deallocate_local(2),
-        InstructionBuilder::new().add_opcode(OpCode::ReturnNone).build(),
-
+        InstructionBuilder::new()
+            .add_opcode(OpCode::ReturnNone)
+            .build(),
         InstructionBuilder::new_load_local(0, 0),
         InstructionBuilder::new_load_local(1, 1),
-
         InstructionBuilder::new_print_instruction(0, true),
         InstructionBuilder::new_print_instruction(1, true),
-
         InstructionBuilder::new_deallocate_local(2),
-
         InstructionBuilder::new_halt_instruction(),
     ];
 

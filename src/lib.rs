@@ -1,4 +1,5 @@
 pub mod bytecode;
+pub mod compiler;
 pub mod debug;
 pub mod file;
 pub mod frame;
@@ -8,6 +9,5 @@ pub mod object;
 pub mod program;
 pub mod register;
 pub mod version;
-pub mod compiler;
 
 mod tests;

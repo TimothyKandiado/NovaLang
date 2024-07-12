@@ -3,7 +3,10 @@ use crate::{
     instruction::{Instruction, InstructionDecoder},
 };
 
-pub fn debug_instruction(instructions: &Vec<Instruction>, instruction_pointer: Instruction) -> String{
+pub fn debug_instruction(
+    instructions: &Vec<Instruction>,
+    instruction_pointer: Instruction,
+) -> String {
     let instruction = instructions[instruction_pointer as usize];
 
     let opcode = InstructionDecoder::decode_opcode(instruction);
@@ -16,33 +19,17 @@ pub fn debug_instruction(instructions: &Vec<Instruction>, instruction_pointer: I
         }
 
         // Binary Operations
-        x if x == OpCode::Add as u32 => {
-            binary_op("ADD", instruction)
-        }
-        x if x == OpCode::Sub as u32 => {
-            binary_op("SUB", instruction)
-        }
-        x if x == OpCode::Mul as u32 => {
-            binary_op("MUL", instruction)
-        }
-        x if x == OpCode::Div as u32 => {
-            binary_op("DIV", instruction)
-        }
-        x if x == OpCode::Pow as u32 => {
-            binary_op("POW", instruction)
-        }
-        x if x == OpCode::Mod as u32 => {
-            binary_op("MOD", instruction)
-        }
+        x if x == OpCode::Add as u32 => binary_op("ADD", instruction),
+        x if x == OpCode::Sub as u32 => binary_op("SUB", instruction),
+        x if x == OpCode::Mul as u32 => binary_op("MUL", instruction),
+        x if x == OpCode::Div as u32 => binary_op("DIV", instruction),
+        x if x == OpCode::Pow as u32 => binary_op("POW", instruction),
+        x if x == OpCode::Mod as u32 => binary_op("MOD", instruction),
 
         // Register Manipulation
-        x if x == OpCode::LoadK as u32 => {
-            load_constant_to_register(instruction)
-        }
+        x if x == OpCode::LoadK as u32 => load_constant_to_register(instruction),
 
-        x if x == OpCode::LoadBool as u32 => {
-            load_bool_to_register(instruction)
-        }
+        x if x == OpCode::LoadBool as u32 => load_bool_to_register(instruction),
 
         x if x == OpCode::LoadFloat as u32 => {
             let destination_register = InstructionDecoder::decode_destination_register(instruction);
@@ -51,9 +38,7 @@ pub fn debug_instruction(instructions: &Vec<Instruction>, instruction_pointer: I
             load_number_to_register(destination_register, number)
         }
 
-        x if x == OpCode::Move as u32 => {
-            move_register(instruction)
-        }
+        x if x == OpCode::Move as u32 => move_register(instruction),
 
         // Variable Manipulation
         x if x == OpCode::DefineGlobalIndirect as u32 => {
@@ -75,7 +60,6 @@ pub fn debug_instruction(instructions: &Vec<Instruction>, instruction_pointer: I
 
             return format!("LOADGLOBALINDIRECT {} {}", destination, address);
         }
-        
 
         x if x == OpCode::LoadGlobal as u32 => {
             let destination = InstructionDecoder::decode_destination_register(instruction);
@@ -157,7 +141,10 @@ pub fn debug_instruction(instructions: &Vec<Instruction>, instruction_pointer: I
             let parameters = InstructionDecoder::decode_source_register_1(instruction);
             let name_address = InstructionDecoder::decode_immutable_address_small(instruction);
 
-            return format!("CALL_INDIRECT {} {} {} ",parameter_start, parameters, name_address);
+            return format!(
+                "CALL_INDIRECT {} {} {} ",
+                parameter_start, parameters, name_address
+            );
         }
 
         x if x == OpCode::ReturnNone as u32 => {
@@ -165,7 +152,13 @@ pub fn debug_instruction(instructions: &Vec<Instruction>, instruction_pointer: I
         }
 
         x if x == OpCode::ReturnVal as u32 => {
-            return format!("RETURN_VAL");
+            let source = InstructionDecoder::decode_source_register_1(instruction);
+            return format!("RETURN_VAL {}", source);
+        }
+
+        x if x == OpCode::LoadReturn as u32 => {
+            let destination = InstructionDecoder::decode_destination_register(instruction);
+            return format!("LOADRETURN {}", destination);
         }
 
         // IO

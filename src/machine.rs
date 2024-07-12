@@ -13,13 +13,20 @@ use crate::debug::debug_instruction;
 const PC_START: Instruction = 0x0;
 
 #[inline(always)]
-fn offset_immutable_address(instruction: Instruction, offset : Instruction) -> Instruction {
+fn offset_immutable_address(instruction: Instruction, offset: Instruction) -> Instruction {
     let opcode = InstructionDecoder::decode_opcode(instruction);
 
-    if opcode == OpCode::LoadK.to_u32() || opcode == OpCode::DefineGlobalIndirect.to_u32() || opcode == OpCode::LoadGlobalIndirect.to_u32() || opcode == OpCode::StoreGlobalIndirect.to_u32() {
+    if opcode == OpCode::LoadK.to_u32()
+        || opcode == OpCode::DefineGlobalIndirect.to_u32()
+        || opcode == OpCode::LoadGlobalIndirect.to_u32()
+        || opcode == OpCode::StoreGlobalIndirect.to_u32()
+    {
         let old_address = InstructionDecoder::decode_immutable_address_small(instruction);
         let new_address = old_address + offset;
-        return InstructionBuilder::from(instruction).clear_address_small().add_address_small(new_address).build()
+        return InstructionBuilder::from(instruction)
+            .clear_address_small()
+            .add_address_small(new_address)
+            .build();
     }
 
     instruction
@@ -82,7 +89,7 @@ impl VirtualMachine {
         self.running = true;
         let program_counter = Register {
             kind: RegisterValueKind::MemAddress,
-            value: offset + PC_START
+            value: offset + PC_START,
         };
 
         self.registers[RegisterID::RPC as usize] = program_counter;
@@ -170,7 +177,6 @@ impl VirtualMachine {
             x if x == OpCode::LoadGlobalIndirect as u32 => {
                 self.load_global_indirect(instruction);
             }
-            
 
             x if x == OpCode::LoadGlobal as u32 => {
                 let destination = InstructionDecoder::decode_destination_register(instruction);
@@ -213,7 +219,6 @@ impl VirtualMachine {
             }
 
             // Control flow
-
             x if x == OpCode::JumpFalse as u32 => {
                 self.jump_if_false(instruction);
             }
@@ -230,6 +235,7 @@ impl VirtualMachine {
 
             x if x == OpCode::ReturnVal as u32 => self.return_val(instruction),
 
+            x if x == OpCode::LoadReturn as u32 => self.load_return(instruction),
 
             // IO
             x if x == OpCode::Print as u32 => {
@@ -260,7 +266,7 @@ impl VirtualMachine {
     }
 
     #[inline(always)]
-    fn new_frame(&mut self) -> Frame {
+    fn new_frame(&mut self, num_locals: Instruction) -> Frame {
         let return_address = self.registers[RegisterID::RPC as usize].value;
         let local_offset = self.registers[RegisterID::RLO as usize].value;
 
@@ -272,6 +278,9 @@ impl VirtualMachine {
 
         self.increase_local_offset();
 
+        self.allocate_local_memory(num_locals);
+        self.registers[RegisterID::RMax as usize].value = num_locals;
+
         frame
     }
 
@@ -282,6 +291,10 @@ impl VirtualMachine {
 
     #[inline(always)]
     fn drop_frame(&mut self) {
+        let return_value = self.registers[RegisterID::RRTN as usize];
+        let num_locals = self.registers[RegisterID::RMax as usize].value;
+        self.deallocate_local_variables(num_locals);
+
         let frame = self.frames.pop();
 
         if let Some(frame) = frame {
@@ -291,8 +304,9 @@ impl VirtualMachine {
             }
 
             self.registers = frame.registers;
-            //self.registers[RegisterID::RPC as usize].value = frame.return_address;
-            //self.registers[RegisterID::RLO as usize].value = frame.local_offset;
+            self.registers[RegisterID::RRTN as usize] = return_value;
+
+            self.deallocate_local_variables(num_locals);
         } else {
             self.running = false;
         }
@@ -300,54 +314,58 @@ impl VirtualMachine {
 
     #[inline(always)]
     fn call_indirect(&mut self, instruction: Instruction) {
-        let old_frame = self.new_frame();
-
         let call_index = InstructionDecoder::decode_immutable_address_small(instruction);
         let call_object = &self.immutables[call_index as usize];
-
-        let argument_start = InstructionDecoder::decode_destination_register(instruction);
-        let argument_number = InstructionDecoder::decode_source_register_1(instruction);
-
-        // copy arguments from old frame to new frame
-        for index in argument_start..argument_start+argument_number  {
-            self.registers[index as usize] = old_frame.registers[index as usize];
-        }
 
         // if call points to a string
         // find a callable object with that name
         if let NovaObject::String(call_name) = call_object {
-            let callables = self.immutables.iter()
-            .filter(|immutable|  {
-                immutable.is_callable()
-            })
-            .map(|nova_object| {
-                if let NovaObject::NovaFunction(function) = nova_object {
-                    NovaCallable::Function(function)
-                }
-                else {
-                    NovaCallable::None
-                }
-            }).collect::<Vec<_>>();
+            let callables = self
+                .immutables
+                .iter()
+                .filter(|immutable| immutable.is_callable())
+                .map(|nova_object| {
+                    if let NovaObject::NovaFunction(function) = nova_object {
+                        NovaCallable::Function(function)
+                    } else {
+                        NovaCallable::None
+                    }
+                })
+                .collect::<Vec<_>>();
 
-            let callable = callables.iter().find(|callable| {
-                match callable {
-                    NovaCallable::Function(function) => function.name == *call_name,
-                    NovaCallable::None => false
-                }
+            let callable = callables.iter().find(|callable| match callable {
+                NovaCallable::Function(function) => function.name == *call_name,
+                NovaCallable::None => false,
             });
 
             if let Some(callable) = callable {
                 match callable {
                     NovaCallable::Function(function) => {
                         let address = function.address;
-                        let num_arguments = InstructionDecoder::decode_source_register_1(instruction);
+                        let num_arguments =
+                            InstructionDecoder::decode_source_register_1(instruction);
 
                         if num_arguments != function.arity {
-                            self.emit_error_with_message(&format!("Not enough function arguments.\n{} are required\n{} were provided", function.arity, num_arguments));
+                            self.emit_error_with_message(&format!(
+                                "Not enough function arguments.\n{} are required\n{} were provided",
+                                function.arity, num_arguments
+                            ));
                             return;
                         }
 
-                        
+                        let num_locals = function.number_of_locals;
+                        let old_frame = self.new_frame(num_locals);
+
+                        let argument_start =
+                            InstructionDecoder::decode_destination_register(instruction);
+                        let argument_number =
+                            InstructionDecoder::decode_source_register_1(instruction);
+
+                        // copy arguments from old frame to new frame
+                        for index in argument_start..argument_start + argument_number {
+                            self.registers[index as usize] = old_frame.registers[index as usize];
+                        }
+
                         self.registers[RegisterID::RPC as usize].value = address;
                         return;
                     }
@@ -359,7 +377,10 @@ impl VirtualMachine {
                 }
             }
 
-            self.emit_error_with_message(&format!("No callable by the name: '{}' was found", call_name));
+            self.emit_error_with_message(&format!(
+                "No callable by the name: '{}' was found",
+                call_name
+            ));
             return;
         }
     }
@@ -374,9 +395,18 @@ impl VirtualMachine {
     fn return_val(&mut self, instruction: Instruction) {
         let value_source = InstructionDecoder::decode_source_register_1(instruction);
         let value_register = self.get_register(value_source);
+
         self.set_value_in_register(RegisterID::RRTN as Instruction, value_register);
 
-        let _frame = self.drop_frame();
+        self.drop_frame();
+    }
+
+    #[inline(always)]
+    fn load_return(&mut self, instruction: Instruction) {
+        let destination = InstructionDecoder::decode_destination_register(instruction);
+
+        let return_register = self.registers[RegisterID::RRTN as usize];
+        self.set_value_in_register(destination, return_register);
     }
 
     #[inline(always)]
@@ -710,9 +740,9 @@ impl VirtualMachine {
             return;
         }
 
-        let register = Register{
-            value: if less {1} else {0},
-            kind: RegisterValueKind::Bool
+        let register = Register {
+            value: if less { 1 } else { 0 },
+            kind: RegisterValueKind::Bool,
         };
 
         self.set_value_in_register(destination, register);
@@ -734,9 +764,9 @@ impl VirtualMachine {
             return;
         }
 
-        let register = Register{
-            value: if less {1} else {0},
-            kind: RegisterValueKind::Bool
+        let register = Register {
+            value: if less { 1 } else { 0 },
+            kind: RegisterValueKind::Bool,
         };
 
         self.set_value_in_register(destination, register);
@@ -758,9 +788,9 @@ impl VirtualMachine {
             return;
         }
 
-        let register = Register{
-            value: if equal {1} else {0},
-            kind: RegisterValueKind::Bool
+        let register = Register {
+            value: if equal { 1 } else { 0 },
+            kind: RegisterValueKind::Bool,
         };
 
         self.set_value_in_register(destination, register);
@@ -772,7 +802,7 @@ impl VirtualMachine {
         let mut register = self.get_register(source);
 
         let is_true = self.is_truthy(register);
-        register.value = if is_true {0} else {1};
+        register.value = if is_true { 0 } else { 1 };
         self.set_value_in_register(source, register);
     }
 
@@ -781,15 +811,11 @@ impl VirtualMachine {
         match register.kind {
             RegisterValueKind::None => false,
             RegisterValueKind::Float32 => true,
-            RegisterValueKind::Bool => {
-                register.value == 1
-            },
+            RegisterValueKind::Bool => register.value == 1,
             RegisterValueKind::MemAddress => true,
             RegisterValueKind::ImmAddress => true,
         }
     }
-
-    
 
     #[inline(always)]
     fn jump_if_false(&mut self, instruction: Instruction) {
@@ -1022,15 +1048,30 @@ impl VirtualMachine {
     }
 
     #[inline(always)]
+    fn allocate_local_memory(&mut self, number_of_locals: Instruction) {
+        let mut local_space = vec![Register::default(); number_of_locals as usize];
+        self.locals.append(&mut local_space)
+    }
+
+    #[inline(always)]
     fn deallocate_locals(&mut self, instruction: Instruction) {
         // number of variables
         let mut number = InstructionDecoder::decode_immutable_address_small(instruction);
-        
+
         while number > 0 {
             number -= 1;
             self.locals.pop();
         }
+    }
 
+    #[inline(always)]
+    fn deallocate_local_variables(&mut self, number_of_locals: Instruction) {
+        let mut number = number_of_locals;
+
+        while number > 0 {
+            number -= 1;
+            self.locals.pop();
+        }
     }
 
     #[inline(always)]
@@ -1142,11 +1183,11 @@ impl VirtualMachine {
 
             OpCode::Equal => {
                 if first.kind != second.kind {
-                    return false
+                    return false;
                 }
 
                 if first.kind.is_float32() && second.kind.is_float32() {
-                    return first.value == second.value
+                    return first.value == second.value;
                 }
 
                 if first.kind.is_mem_address() && second.kind.is_mem_address() {
@@ -1180,13 +1221,17 @@ impl VirtualMachine {
 
     #[cfg(feature = "debug")]
     fn debug(&self) {
-        #[cfg(feature = "dbg_code")] 
+        #[cfg(feature = "dbg_code")]
         {
             let current = self.registers[RegisterID::RPC as usize].value;
-            println!("[{}]: {}", current, debug_instruction(
-                &self.instructions,
-                self.registers[RegisterID::RPC as usize].value,
-            ));
+            println!(
+                "[{}]: {}",
+                current,
+                debug_instruction(
+                    &self.instructions,
+                    self.registers[RegisterID::RPC as usize].value,
+                )
+            );
         }
         #[cfg(feature = "verbose")]
         self.print_register_values();
@@ -1208,7 +1253,6 @@ impl VirtualMachine {
 
         let mut buffer = String::new();
         let _ = io::stdin().read_line(&mut buffer);
-
     }
 
     #[cfg(feature = "verbose")]
@@ -1241,22 +1285,20 @@ impl VirtualMachine {
         print_vec_of_registers(&self.locals);
         println!("{:=^30}", "");
     }
-    
+
     #[cfg(feature = "dbg_global")]
     fn print_identifiers(&self) {
         println!("{:=^30}", "Identifiers");
         println!("==> {:?}", &self.identifiers);
         println!("{:=^30}", "");
     }
-
-    
 }
 
 #[allow(dead_code)]
 fn print_vec_of_registers(registers: &Vec<Register>) {
     println!("[");
     for (index, register) in registers.iter().enumerate() {
-        println!("\t[{}] {}, ",index, register)
+        println!("\t[{}] {}, ", index, register)
     }
     println!("]");
 }

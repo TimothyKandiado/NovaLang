@@ -6,7 +6,12 @@ use std::{
     io::{BufReader, Write},
 };
 
-use crate::{instruction::Instruction, object::{NovaFunction, NovaObject}, program::Program, version};
+use crate::{
+    instruction::Instruction,
+    object::{NovaFunction, NovaObject},
+    program::Program,
+    version,
+};
 
 #[derive(Debug)]
 struct FileError {
@@ -90,9 +95,10 @@ fn write_immutables(program: &Program, buffer: &mut Vec<u8>) -> Result<(), Box<d
                 buffer.write_u8(ImmutableKind::NovaFunction as u8)?; // write a type
                 buffer.write_u32::<LittleEndian>(function.address)?;
                 buffer.write_u8(function.arity as u8)?;
+                buffer.write_u32::<LittleEndian>(function.number_of_locals)?;
                 buffer.write_u8(function.is_method as u8)?;
                 let length = function.name.len();
-                buffer.write_u64::<LittleEndian>(length as u64)?; 
+                buffer.write_u64::<LittleEndian>(length as u64)?;
                 let bytes = function.name.as_bytes();
                 buffer.write(bytes)?;
             }
@@ -194,6 +200,7 @@ pub fn read_immutables(
             x if x == ImmutableKind::NovaFunction as u8 => {
                 let address = reader.read_u32::<LittleEndian>()?;
                 let arity = reader.read_u8()? as Instruction;
+                let number_of_locals = reader.read_u32::<LittleEndian>()?;
                 let is_method = reader.read_u8()? != 0;
                 let length = reader.read_u64::<LittleEndian>()?;
                 let mut str_buffer = Vec::with_capacity(length as usize);
@@ -209,6 +216,7 @@ pub fn read_immutables(
                     address,
                     arity,
                     is_method,
+                    number_of_locals,
                 }))
             }
 

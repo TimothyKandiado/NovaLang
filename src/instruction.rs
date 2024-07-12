@@ -89,7 +89,11 @@ impl InstructionBuilder {
             .build()
     }
 
-    pub fn new_call_indirect_instruction(parameter_start: Instruction, parameter_number: Instruction, function_index: Instruction) -> Instruction {
+    pub fn new_call_indirect_instruction(
+        parameter_start: Instruction,
+        parameter_number: Instruction,
+        function_index: Instruction,
+    ) -> Instruction {
         InstructionBuilder::new()
             .add_opcode(OpCode::CallIndirect)
             .add_destination_register(parameter_start)
@@ -113,7 +117,10 @@ impl InstructionBuilder {
             .build()
     }
 
-    pub fn new_store_global_indirect(source1: Instruction, immutable_address: Instruction) -> Instruction {
+    pub fn new_store_global_indirect(
+        source1: Instruction,
+        immutable_address: Instruction,
+    ) -> Instruction {
         InstructionBuilder::new()
             .add_opcode(OpCode::StoreGlobalIndirect)
             .add_source_register_1(source1)
@@ -184,15 +191,15 @@ impl InstructionBuilder {
 
     pub fn new_return_none_instruction() -> Instruction {
         InstructionBuilder::new()
-        .add_opcode(OpCode::ReturnNone)
-        .build()
+            .add_opcode(OpCode::ReturnNone)
+            .build()
     }
 
     pub fn new_return_value(source: Instruction) -> Instruction {
         InstructionBuilder::new()
-        .add_opcode(OpCode::ReturnVal)
-        .add_source_register_1(source)
-        .build()
+            .add_opcode(OpCode::ReturnVal)
+            .add_source_register_1(source)
+            .build()
     }
 
     pub fn new_halt_instruction() -> Instruction {
