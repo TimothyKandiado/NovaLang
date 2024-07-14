@@ -68,7 +68,7 @@ impl VirtualMachine {
 
     pub fn load_natives(&mut self, native_functions: Vec<NativeFunction>) {
         for native_function in native_functions {
-            self.load_native_function(native_function);
+            self.load_callable(NovaCallable::NativeFunction(&native_function));
         }
     }
 
@@ -76,10 +76,11 @@ impl VirtualMachine {
     /// the function name is stored in the identifiers map together with an address to a global location. 
     /// the global location points to a memory address containing a NovaObject wrapping the NativeFunction
     #[inline(always)]
-    fn load_native_function(&mut self, native_function: NativeFunction) {
+    fn load_callable(&mut self, callable: NovaCallable) {
         let global_location = self.allocate_global();
-        self.create_global(native_function.name.clone(), global_location);
-        let nova_object = NovaObject::NativeFunction(native_function);
+        let name = callable.get_name().to_string();
+        self.create_global(name, global_location);
+        let nova_object = callable.as_object();
         let memory_location = self.store_object_in_memory(nova_object);
         let global_value = Register::new(RegisterValueKind::MemAddress, memory_location);
         self.set_global_value(global_location, global_value);
@@ -99,6 +100,11 @@ impl VirtualMachine {
         }
 
         for immutable in &program.immutables {
+            if immutable.is_callable() {
+                let callable = immutable.as_callable();
+                self.load_callable(callable);
+                continue;
+            }
             self.immutables.push(immutable.clone());
         }
     }
@@ -255,10 +261,6 @@ impl VirtualMachine {
                 self.jump(instruction);
             }
 
-            x if x == OpCode::CallIndirect as u32 => {
-                self.call_indirect(instruction);
-            }
-
             x if x == OpCode::Invoke as u32 => {
                 self.invoke(instruction);
             }
@@ -409,137 +411,32 @@ impl VirtualMachine {
 
                 if result.is_err() {
                     self.emit_error_with_message(&result.unwrap_err());
+                    return;
+                }
+
+                let result = result.unwrap();
+
+                match result {
+                    NovaObject::Float32(value) => {
+                        let register = Register::new(RegisterValueKind::Float32, value.to_bits());
+                        self.set_value_in_register(RegisterID::RRTN as Instruction, register);
+                    }
+
+                    NovaObject::None => {
+                        self.set_value_in_register(RegisterID::RRTN as Instruction, Register::empty());
+                    }
+
+                    _ => {
+                        let memory_location = self.store_object_in_memory(result);
+                        let register = Register::new(RegisterValueKind::MemAddress, memory_location);
+                        self.set_value_in_register(RegisterID::RRTN as Instruction, register);
+                    }
                 }
             }
 
             NovaCallable::None => {
                 self.emit_error_with_message("Called a None Value");
                 return;
-            }
-        }
-    }
-
-    #[inline(always)]
-    fn call_indirect(&mut self, instruction: Instruction) {
-        let call_index = InstructionDecoder::decode_immutable_address_small(instruction);
-        let call_object = &self.immutables[call_index as usize];
-
-        // if call points to a string
-        // find a callable object with that name
-        if let NovaObject::String(call_name) = call_object {
-            let call_name = call_name.to_string();
-            /* let callables = self
-                .immutables
-                .iter()
-                .filter(|immutable| immutable.is_callable())
-                .map(|nova_object| {
-                    if let NovaObject::NovaFunction(function) = nova_object {
-                        NovaCallable::NovaFunction(function)
-                    } else {
-                        NovaCallable::None
-                    }
-                })
-                .collect::<Vec<_>>();
-
-            let callable = callables.iter().find(|callable| match callable {
-                NovaCallable::NovaFunction(function) => function.name == *call_name,
-                NovaCallable::NativeFunction(native_function) => native_function.name == **call_name,
-                NovaCallable::None => false,
-            }); */
-
-            let global_location = self.identifiers.get(&call_name);
-            if global_location.is_none() {
-                self.emit_error_with_message(&format!(
-                    "No callable by the name: '{}' was found",
-                    call_name
-                ));
-                return;
-            }
-
-            let global_location = *global_location.unwrap();
-            let global_value = self.globals[global_location as usize];
-
-            if global_value.kind != RegisterValueKind::MemAddress {
-                self.emit_error_with_message(&format!(
-                    "No callable by the name: '{}' was found",
-                    call_name
-                ));
-                return
-            }
-
-            let object = self.load_object_from_memory(global_value.value);
-
-            let callable = match object {
-                NovaObject::NovaFunction(nova_function) => NovaCallable::NovaFunction(nova_function),
-                NovaObject::NativeFunction(native_function) => NovaCallable::NativeFunction(native_function),
-                _ => NovaCallable::None
-            };
-
-            {
-                let argument_start =
-                            InstructionDecoder::decode_destination_register(instruction);
-                let argument_number =
-                            InstructionDecoder::decode_source_register_1(instruction);
-
-                match callable {
-                    NovaCallable::NovaFunction(function) => {
-                        let address = function.address;
-
-                        if argument_number != function.arity {
-                            self.emit_error_with_message(&format!(
-                                "Not enough function arguments.\n{} are required\n{} were provided",
-                                function.arity, argument_number
-                            ));
-                            return;
-                        }
-
-                        let num_locals = function.number_of_locals;
-                        let old_frame = self.new_frame(num_locals);
-
-                        // copy arguments from old frame to new frame
-                        /* for index in argument_start..argument_start + argument_number {
-                            self.registers[index as usize] = old_frame.registers[index as usize];
-                        } */
-
-                        let mut source_index = argument_start as usize;
-                        let source_end = (argument_start + argument_number) as usize;
-                        let mut destination_index = 0;
-
-                        while source_index < source_end {
-                            self.registers[destination_index] = old_frame.registers[source_index];
-                            destination_index += 1;
-                            source_index += 1;
-                        }
-
-                        self.registers[RegisterID::RPC as usize].value = address;
-                        return;
-                    }
-
-                    NovaCallable::NativeFunction(function) => {
-
-                        let mut source_index = argument_start;
-                        let source_end = argument_start + argument_number;
-
-                        let mut arguments = Vec::new();
-
-                        while source_index < source_end {
-                            let object = self.package_register_into_nova_object(source_index);
-                            arguments.push(object);
-                            source_index += 1;
-                        }
-
-                        let result = (function.function)(arguments);
-
-                        if result.is_err() {
-                            self.emit_error_with_message(&result.unwrap_err());
-                        }
-                    }
-
-                    NovaCallable::None => {
-                        self.emit_error_with_message("Called a None Value");
-                        return;
-                    }
-                }
             }
         }
     }

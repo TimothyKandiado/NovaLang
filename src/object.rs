@@ -36,6 +36,24 @@ pub enum NovaCallable<'a> {
     NativeFunction(&'a NativeFunction),
 }
 
+impl NovaCallable<'_> {
+    pub fn get_name(&self) -> &str {
+        match self {
+            NovaCallable::NovaFunction(ref function) => function.name.as_str(),
+            NovaCallable::NativeFunction(ref function) => function.name.as_str(),
+            NovaCallable::None => "None"
+        }
+    }
+
+    pub fn as_object(&self) -> NovaObject {
+        match self {
+            NovaCallable::None => NovaObject::None,
+            NovaCallable::NativeFunction(function) => NovaObject::NativeFunction((*function).clone()),
+            NovaCallable::NovaFunction(function) => NovaObject::NovaFunction((*function).clone())
+        }
+    }
+}
+
 impl NovaObject {
     pub fn is_none(&self) -> bool {
         matches!(self, NovaObject::None)
@@ -46,7 +64,15 @@ impl NovaObject {
     }
 
     pub fn is_callable(&self) -> bool {
-        matches!(self, NovaObject::NovaFunction(_))
+        matches!(self, NovaObject::NovaFunction(_) | NovaObject::NativeFunction(_))
+    }
+
+    pub fn as_callable(&self) -> NovaCallable {
+        match self {
+            NovaObject::NovaFunction(nova_function) => NovaCallable::NovaFunction(nova_function),
+            NovaObject::NativeFunction(native_function) => NovaCallable::NativeFunction(native_function),
+            _ => NovaCallable::None
+        }
     }
 }
 
