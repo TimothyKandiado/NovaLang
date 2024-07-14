@@ -1,0 +1,9 @@
+index := 1
+
+while index <= 5
+    # Native function for printing arguments given
+    print("[", index, "] : ")
+    # Native function that prints "Hello Native World!!!"
+    Hello()
+    index = index + 1
+end

@@ -16,15 +16,24 @@ pub struct NovaFunction {
 }
 
 #[derive(Debug, Clone, PartialEq, PartialOrd)]
+pub struct NativeFunction {
+    pub name: String,
+    pub function: fn(Vec<NovaObject>) -> Result<NovaObject, String>,
+}
+
+#[derive(Debug, Clone, PartialEq, PartialOrd)]
 pub enum NovaObject {
     None,
+    Float32(f32),
     NovaFunction(NovaFunction),
+    NativeFunction(NativeFunction),
     String(Box<String>),
 }
 
 pub enum NovaCallable<'a> {
     None,
-    Function(&'a NovaFunction),
+    NovaFunction(&'a NovaFunction),
+    NativeFunction(&'a NativeFunction),
 }
 
 impl NovaObject {
@@ -45,12 +54,21 @@ impl Display for NovaObject {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
             NovaObject::None => write!(f, "None"),
+            NovaObject::Float32(float) => write!(f, "{}", float),
             NovaObject::String(string) => write!(f, "{}", string),
             NovaObject::NovaFunction(nova_function) => {
                 write!(
                     f,
                     "function: {}, parameters: {}",
                     nova_function.name, nova_function.arity
+                )
+            }
+            
+            NovaObject::NativeFunction(native_function) => {
+                write!(
+                    f,
+                    "function: {}",
+                    native_function.name
                 )
             }
         }

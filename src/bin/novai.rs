@@ -4,7 +4,7 @@ use std::{
     process::exit,
 };
 
-use nova::{compiler, instruction::Instruction, machine::VirtualMachine};
+use nova::{compiler, instruction::Instruction, machine::VirtualMachine, natives};
 
 const PROMPT: &str = ">>";
 
@@ -18,7 +18,9 @@ fn main() {
 }
 
 fn repl() {
+    let native_functions = natives::common_native_functions();
     let mut interpreter = VirtualMachine::new();
+    interpreter.load_natives(native_functions);
     let mut offset = 0 as Instruction;
 
     loop {
@@ -55,7 +57,9 @@ fn run_file(path: &str) {
 
     let code = result.unwrap();
 
+    let natives = natives::common_native_functions();
     let mut interpreter = VirtualMachine::new();
+    interpreter.load_natives(natives);
     let offset = 0 as Instruction;
 
     let program = compiler::compile(&code).unwrap();

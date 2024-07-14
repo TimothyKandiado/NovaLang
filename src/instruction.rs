@@ -102,6 +102,19 @@ impl InstructionBuilder {
             .build()
     }
 
+    pub fn new_invoke_instruction(
+        parameter_start: Instruction,
+        parameter_number: Instruction,
+        register_index: Instruction,
+    ) -> Instruction {
+        InstructionBuilder::new()
+            .add_opcode(OpCode::Invoke)
+            .add_destination_register(parameter_start)
+            .add_source_register_1(parameter_number)
+            .add_source_register_2(register_index)
+            .build()
+    }
+
     pub fn new_load_bool(destination: Instruction, value: Instruction) -> Instruction {
         InstructionBuilder::new()
             .add_opcode(OpCode::LoadBool)

@@ -2,7 +2,7 @@ use crate::{
     bytecode::OpCode,
     frame::Frame,
     instruction::{Instruction, InstructionBuilder, InstructionDecoder},
-    object::{MappedMemory, NovaCallable, NovaObject, RegisterValueKind},
+    object::{MappedMemory, NativeFunction, NovaCallable, NovaObject, RegisterValueKind},
     program::Program,
     register::{Register, RegisterID},
 };
@@ -58,13 +58,31 @@ impl VirtualMachine {
             immutables: Vec::new(),
             registers: [Register::default(); RegisterID::RMax as usize + 1],
             running: false,
-            //instruction_count: 0,
             memory: Vec::new(),
             frames: vec![Frame::main()],
             locals: Vec::new(),
             globals: Vec::new(),
             identifiers: MappedMemory::new(),
         }
+    }
+
+    pub fn load_natives(&mut self, native_functions: Vec<NativeFunction>) {
+        for native_function in native_functions {
+            self.load_native_function(native_function);
+        }
+    }
+
+    /// load a native function into virtual machine
+    /// the function name is stored in the identifiers map together with an address to a global location. 
+    /// the global location points to a memory address containing a NovaObject wrapping the NativeFunction
+    #[inline(always)]
+    fn load_native_function(&mut self, native_function: NativeFunction) {
+        let global_location = self.allocate_global();
+        self.create_global(native_function.name.clone(), global_location);
+        let nova_object = NovaObject::NativeFunction(native_function);
+        let memory_location = self.store_object_in_memory(nova_object);
+        let global_value = Register::new(RegisterValueKind::MemAddress, memory_location);
+        self.set_global_value(global_location, global_value);
     }
 
     pub fn get_instruction_count(&self) -> u32 {
@@ -83,6 +101,11 @@ impl VirtualMachine {
         for immutable in &program.immutables {
             self.immutables.push(immutable.clone());
         }
+    }
+
+    #[inline(always)]
+    fn clear_error(&mut self) {
+        self.registers[RegisterID::RERR as usize] = Register::empty();
     }
 
     pub fn start_vm(&mut self, offset: Instruction) -> u32 {
@@ -104,9 +127,11 @@ impl VirtualMachine {
 
             if self.check_error() {
                 self.print_error();
+                self.clear_error();
                 return 1;
             }
         }
+        
         return 0;
     }
 
@@ -234,6 +259,10 @@ impl VirtualMachine {
                 self.call_indirect(instruction);
             }
 
+            x if x == OpCode::Invoke as u32 => {
+                self.invoke(instruction);
+            }
+
             x if x == OpCode::ReturnNone as u32 => self.return_none(),
 
             x if x == OpCode::ReturnVal as u32 => self.return_val(instruction),
@@ -314,6 +343,83 @@ impl VirtualMachine {
     }
 
     #[inline(always)]
+    fn invoke(&mut self, instruction: Instruction) {
+        let invoke_register = InstructionDecoder::decode_source_register_2(instruction);
+        let argument_start = InstructionDecoder::decode_destination_register(instruction);
+        let argument_number = InstructionDecoder::decode_source_register_1(instruction);
+
+        let register = self.get_register(invoke_register);
+
+        if register.kind != RegisterValueKind::MemAddress {
+            self.emit_error_with_message("Function not found");
+            return
+        }
+
+        let nova_object = self.load_object_from_memory(register.value);
+
+        let callable = match nova_object {
+            NovaObject::NovaFunction(nova_function) => NovaCallable::NovaFunction(nova_function),
+            NovaObject::NativeFunction(native_function) => NovaCallable::NativeFunction(native_function),
+            _ => NovaCallable::None
+        };
+
+        match callable {
+            NovaCallable::NovaFunction(function) => {
+                let address = function.address;
+
+                if argument_number != function.arity {
+                    self.emit_error_with_message(&format!(
+                        "Not enough function arguments.\n{} are required\n{} were provided",
+                        function.arity, argument_number
+                    ));
+                    return;
+                }
+
+                let num_locals = function.number_of_locals;
+                let old_frame = self.new_frame(num_locals);
+
+                let mut source_index = argument_start as usize;
+                let source_end = (argument_start + argument_number) as usize;
+                let mut destination_index = 0;
+
+                while source_index < source_end {
+                    self.registers[destination_index] = old_frame.registers[source_index];
+                    destination_index += 1;
+                    source_index += 1;
+                }
+
+                self.registers[RegisterID::RPC as usize].value = address;
+                return;
+            }
+
+            NovaCallable::NativeFunction(function) => {
+
+                let mut source_index = argument_start;
+                let source_end = argument_start + argument_number;
+
+                let mut arguments = Vec::new();
+
+                while source_index < source_end {
+                    let object = self.package_register_into_nova_object(source_index);
+                    arguments.push(object);
+                    source_index += 1;
+                }
+
+                let result = (function.function)(arguments);
+
+                if result.is_err() {
+                    self.emit_error_with_message(&result.unwrap_err());
+                }
+            }
+
+            NovaCallable::None => {
+                self.emit_error_with_message("Called a None Value");
+                return;
+            }
+        }
+    }
+
+    #[inline(always)]
     fn call_indirect(&mut self, instruction: Instruction) {
         let call_index = InstructionDecoder::decode_immutable_address_small(instruction);
         let call_object = &self.immutables[call_index as usize];
@@ -321,13 +427,14 @@ impl VirtualMachine {
         // if call points to a string
         // find a callable object with that name
         if let NovaObject::String(call_name) = call_object {
-            let callables = self
+            let call_name = call_name.to_string();
+            /* let callables = self
                 .immutables
                 .iter()
                 .filter(|immutable| immutable.is_callable())
                 .map(|nova_object| {
                     if let NovaObject::NovaFunction(function) = nova_object {
-                        NovaCallable::Function(function)
+                        NovaCallable::NovaFunction(function)
                     } else {
                         NovaCallable::None
                     }
@@ -335,32 +442,59 @@ impl VirtualMachine {
                 .collect::<Vec<_>>();
 
             let callable = callables.iter().find(|callable| match callable {
-                NovaCallable::Function(function) => function.name == *call_name,
+                NovaCallable::NovaFunction(function) => function.name == *call_name,
+                NovaCallable::NativeFunction(native_function) => native_function.name == **call_name,
                 NovaCallable::None => false,
-            });
+            }); */
 
-            if let Some(callable) = callable {
-                match callable {
-                    NovaCallable::Function(function) => {
-                        let address = function.address;
-                        let num_arguments =
+            let global_location = self.identifiers.get(&call_name);
+            if global_location.is_none() {
+                self.emit_error_with_message(&format!(
+                    "No callable by the name: '{}' was found",
+                    call_name
+                ));
+                return;
+            }
+
+            let global_location = *global_location.unwrap();
+            let global_value = self.globals[global_location as usize];
+
+            if global_value.kind != RegisterValueKind::MemAddress {
+                self.emit_error_with_message(&format!(
+                    "No callable by the name: '{}' was found",
+                    call_name
+                ));
+                return
+            }
+
+            let object = self.load_object_from_memory(global_value.value);
+
+            let callable = match object {
+                NovaObject::NovaFunction(nova_function) => NovaCallable::NovaFunction(nova_function),
+                NovaObject::NativeFunction(native_function) => NovaCallable::NativeFunction(native_function),
+                _ => NovaCallable::None
+            };
+
+            {
+                let argument_start =
+                            InstructionDecoder::decode_destination_register(instruction);
+                let argument_number =
                             InstructionDecoder::decode_source_register_1(instruction);
 
-                        if num_arguments != function.arity {
+                match callable {
+                    NovaCallable::NovaFunction(function) => {
+                        let address = function.address;
+
+                        if argument_number != function.arity {
                             self.emit_error_with_message(&format!(
                                 "Not enough function arguments.\n{} are required\n{} were provided",
-                                function.arity, num_arguments
+                                function.arity, argument_number
                             ));
                             return;
                         }
 
                         let num_locals = function.number_of_locals;
                         let old_frame = self.new_frame(num_locals);
-
-                        let argument_start =
-                            InstructionDecoder::decode_destination_register(instruction);
-                        let argument_number =
-                            InstructionDecoder::decode_source_register_1(instruction);
 
                         // copy arguments from old frame to new frame
                         /* for index in argument_start..argument_start + argument_number {
@@ -381,18 +515,32 @@ impl VirtualMachine {
                         return;
                     }
 
+                    NovaCallable::NativeFunction(function) => {
+
+                        let mut source_index = argument_start;
+                        let source_end = argument_start + argument_number;
+
+                        let mut arguments = Vec::new();
+
+                        while source_index < source_end {
+                            let object = self.package_register_into_nova_object(source_index);
+                            arguments.push(object);
+                            source_index += 1;
+                        }
+
+                        let result = (function.function)(arguments);
+
+                        if result.is_err() {
+                            self.emit_error_with_message(&result.unwrap_err());
+                        }
+                    }
+
                     NovaCallable::None => {
                         self.emit_error_with_message("Called a None Value");
                         return;
                     }
                 }
             }
-
-            self.emit_error_with_message(&format!(
-                "No callable by the name: '{}' was found",
-                call_name
-            ));
-            return;
         }
     }
 
@@ -439,7 +587,7 @@ impl VirtualMachine {
             }
             RegisterValueKind::MemAddress => {
                 let address = register.value;
-                let object = self.get_object_from_memory(address);
+                let object = self.load_object_from_memory(address);
                 print!("{}", object);
             }
 
@@ -499,7 +647,7 @@ impl VirtualMachine {
         if let (RegisterValueKind::MemAddress, RegisterValueKind::Float32) =
             (register_1.kind, register_2.kind)
         {
-            let object1 = self.get_object_from_memory(register_1.value);
+            let object1 = self.load_object_from_memory(register_1.value);
             if let NovaObject::String(string) = object1 {
                 let value2 = f32::from_bits(register_2.value);
                 let value2 = value2.to_string();
@@ -508,7 +656,7 @@ impl VirtualMachine {
                 new_value.push_str(&value2);
 
                 let new_object = NovaObject::String(Box::new(new_value));
-                let address = self.load_object_to_memory(new_object);
+                let address = self.store_object_in_memory(new_object);
                 self.load_memory_address_to_register(destination_register, address);
                 return;
             }
@@ -530,7 +678,7 @@ impl VirtualMachine {
                 new_value.push_str(&value2);
 
                 let new_object = NovaObject::String(Box::new(new_value));
-                let address = self.load_object_to_memory(new_object);
+                let address = self.store_object_in_memory(new_object);
                 self.load_memory_address_to_register(destination_register, address);
                 return;
             }
@@ -543,7 +691,7 @@ impl VirtualMachine {
         if let (RegisterValueKind::Float32, RegisterValueKind::MemAddress) =
             (register_1.kind, register_2.kind)
         {
-            let object2 = self.get_object_from_memory(register_2.value);
+            let object2 = self.load_object_from_memory(register_2.value);
             if let NovaObject::String(string) = object2 {
                 let value1 = f32::from_bits(register_1.value);
                 let value1 = value1.to_string();
@@ -552,7 +700,7 @@ impl VirtualMachine {
                 new_value.push_str(string);
 
                 let new_object = NovaObject::String(Box::new(new_value));
-                let address = self.load_object_to_memory(new_object);
+                let address = self.store_object_in_memory(new_object);
                 self.load_memory_address_to_register(destination_register, address);
                 return;
             }
@@ -574,7 +722,7 @@ impl VirtualMachine {
                 new_value.push_str(&string);
 
                 let new_object = NovaObject::String(Box::new(new_value));
-                let address = self.load_object_to_memory(new_object);
+                let address = self.store_object_in_memory(new_object);
                 self.load_memory_address_to_register(destination_register, address);
                 return;
             }
@@ -854,6 +1002,21 @@ impl VirtualMachine {
     }
 
     #[inline(always)]
+    fn package_register_into_nova_object(&self, register_address: Instruction) -> NovaObject {
+        let register = self.get_register(register_address);
+
+        let value = match register.kind {
+            RegisterValueKind::Float32 => NovaObject::Float32(f32::from_bits(register.value)),
+            RegisterValueKind::None => NovaObject::None,
+            RegisterValueKind::MemAddress => self.load_object_from_memory(register.value).clone(),
+            RegisterValueKind::ImmAddress => self.immutables[register.value as usize].clone(),
+            RegisterValueKind::Bool => todo!()
+        };
+
+        value
+    }
+
+    #[inline(always)]
     fn load_constant_to_register(&mut self, instruction: Instruction) {
         let destination_register = InstructionDecoder::decode_destination_register(instruction);
         let immutable_address = InstructionDecoder::decode_immutable_address_small(instruction);
@@ -904,7 +1067,7 @@ impl VirtualMachine {
 
     #[inline(always)]
     fn emit_error_with_message(&mut self, message: &str) {
-        let address = self.load_object_to_memory(NovaObject::String(Box::new(message.to_string())));
+        let address = self.store_object_in_memory(NovaObject::String(Box::new(message.to_string())));
         self.load_memory_address_to_register(RegisterID::RERR as Instruction, address);
     }
 
@@ -935,8 +1098,9 @@ impl VirtualMachine {
         }
     }
 
+    /// store a NovaObject in the memory and return its allocated address
     #[inline(always)]
-    fn load_object_to_memory(&mut self, object: NovaObject) -> Instruction {
+    fn store_object_in_memory(&mut self, object: NovaObject) -> Instruction {
         self.memory.push(object);
         let address = self.memory.len() - 1;
         address as Instruction
@@ -959,15 +1123,19 @@ impl VirtualMachine {
         self.registers[register_id as usize] = value
     }
 
+    /// load an object from memory given the memory location
     #[inline(always)]
-    fn get_object_from_memory(&self, address: Instruction) -> &NovaObject {
+    fn load_object_from_memory(&self, address: Instruction) -> &NovaObject {
         &self.memory[address as usize]
     }
+
 
     #[inline(always)]
     fn free_memory_location(&mut self, _address: Instruction) {
         todo!()
     }
+
+    /// defines an empty global variable in the virtual machine
     #[inline(always)]
     fn define_global_indirect(&mut self, instruction: Instruction) {
         let index = InstructionDecoder::decode_immutable_address_small(instruction);
@@ -975,16 +1143,24 @@ impl VirtualMachine {
 
         if let NovaObject::String(name) = immutable {
             let global_location = self.allocate_global();
-            self.identifiers.insert(name.to_string(), global_location);
+            self.create_global(name.to_string(), global_location);
         }
     }
 
+    /// bind a global location to an identifier
+    #[inline(always)]
+    fn create_global(&mut self, name: String, global_location: Instruction) {
+        self.identifiers.insert(name, global_location);
+    }
+
+    /// allocate memory on the globals vector
     #[inline(always)]
     fn allocate_global(&mut self) -> Instruction {
         self.globals.push(Register::default());
         return (self.globals.len() - 1) as Instruction;
     }
 
+    /// set value of a specified global location
     #[inline(always)]
     fn set_global_value(&mut self, address: Instruction, new_value: Register) {
         let current_value = self.globals[address as usize];
@@ -996,12 +1172,14 @@ impl VirtualMachine {
         self.globals[address as usize] = new_value;
     }
 
+    /// load value from a specified global address
     #[inline(always)]
     fn load_global_value(&mut self, destination: Instruction, global_address: Instruction) {
         let value = self.globals[global_address as usize];
         self.registers[destination as usize] = value;
     }
 
+    /// store a value in a global location by first looking up name in the immutables array
     #[inline(always)]
     fn store_global_indirect(&mut self, instruction: Instruction) {
         let source = InstructionDecoder::decode_source_register_1(instruction);
@@ -1015,11 +1193,13 @@ impl VirtualMachine {
             if let Some(&address) = global_address {
                 let register = self.get_register(source);
                 self.set_global_value(address, register);
+                self.clear_register(source);
 
                 return;
             }
 
             self.emit_error_with_message(&format!("Cannot find global named: {}", name));
+            self.clear_register(source);
             return;
         }
 
@@ -1027,6 +1207,7 @@ impl VirtualMachine {
         self.clear_register(source)
     }
 
+    /// load a value from a global location into a register by first looking up its name in the immutables array
     #[inline(always)]
     fn load_global_indirect(&mut self, instruction: Instruction) {
         let destination = InstructionDecoder::decode_destination_register(instruction);
@@ -1116,20 +1297,6 @@ impl VirtualMachine {
     fn compare_registers(&mut self, op: OpCode, first: Register, second: Register) -> bool {
         match op {
             OpCode::Less => {
-                if first.kind.is_none() && second.kind.is_float32() {
-                    return true;
-                }
-
-                if (first.kind.is_none() || first.kind.is_float32()) && second.kind.is_mem_address()
-                {
-                    return true;
-                }
-
-                if (first.kind.is_none() || first.kind.is_float32()) && second.kind.is_imm_address()
-                {
-                    return true;
-                }
-
                 if first.kind.is_float32() && second.kind.is_float32() {
                     let first = f32::from_bits(first.value);
                     let second = f32::from_bits(second.value);
@@ -1137,8 +1304,8 @@ impl VirtualMachine {
                 }
 
                 if first.kind.is_mem_address() && second.kind.is_mem_address() {
-                    let first = self.get_object_from_memory(first.value);
-                    let second = self.get_object_from_memory(second.value);
+                    let first = self.load_object_from_memory(first.value);
+                    let second = self.load_object_from_memory(second.value);
 
                     return first < second;
                 }
@@ -1152,13 +1319,13 @@ impl VirtualMachine {
 
                 if first.kind.is_imm_address() && second.kind.is_mem_address() {
                     let first = &self.immutables[first.value as usize];
-                    let second = self.get_object_from_memory(second.value);
+                    let second = self.load_object_from_memory(second.value);
 
                     return first < second;
                 }
 
                 if first.kind.is_mem_address() && second.kind.is_imm_address() {
-                    let first = self.get_object_from_memory(first.value);
+                    let first = self.load_object_from_memory(first.value);
                     let second = &self.immutables[second.value as usize];
 
                     return first < second;
@@ -1171,15 +1338,6 @@ impl VirtualMachine {
             }
 
             OpCode::LessEqual => {
-                if first.kind.is_none() && second.kind.is_float32() {
-                    return true;
-                }
-
-                if (first.kind.is_none() || first.kind.is_float32()) && second.kind.is_mem_address()
-                {
-                    return true;
-                }
-
                 if first.kind.is_float32() && second.kind.is_float32() {
                     let first = f32::from_bits(first.value);
                     let second = f32::from_bits(second.value);
@@ -1187,8 +1345,22 @@ impl VirtualMachine {
                 }
 
                 if first.kind.is_mem_address() && second.kind.is_mem_address() {
-                    let first = self.get_object_from_memory(first.value);
-                    let second = self.get_object_from_memory(second.value);
+                    let first = self.load_object_from_memory(first.value);
+                    let second = self.load_object_from_memory(second.value);
+
+                    return first <= second;
+                }
+
+                if first.kind.is_imm_address() && second.kind.is_mem_address() {
+                    let first = &self.immutables[first.value as usize];
+                    let second = self.load_object_from_memory(second.value);
+
+                    return first <= second;
+                }
+
+                if first.kind.is_mem_address() && second.kind.is_imm_address() {
+                    let first = self.load_object_from_memory(first.value);
+                    let second = &self.immutables[second.value as usize];
 
                     return first <= second;
                 }
@@ -1204,13 +1376,31 @@ impl VirtualMachine {
                     return false;
                 }
 
+                if first.kind.is_none() && second.kind.is_none() {
+                    return true;
+                }
+
                 if first.kind.is_float32() && second.kind.is_float32() {
                     return first.value == second.value;
                 }
 
                 if first.kind.is_mem_address() && second.kind.is_mem_address() {
-                    let first = self.get_object_from_memory(first.value);
-                    let second = self.get_object_from_memory(second.value);
+                    let first = self.load_object_from_memory(first.value);
+                    let second = self.load_object_from_memory(second.value);
+
+                    return first == second;
+                }
+
+                if first.kind.is_imm_address() && second.kind.is_mem_address() {
+                    let first = &self.immutables[first.value as usize];
+                    let second = self.load_object_from_memory(second.value);
+
+                    return first == second;
+                }
+
+                if first.kind.is_mem_address() && second.kind.is_imm_address() {
+                    let first = self.load_object_from_memory(first.value);
+                    let second = &self.immutables[second.value as usize];
 
                     return first == second;
                 }

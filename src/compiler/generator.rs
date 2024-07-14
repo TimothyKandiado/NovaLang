@@ -128,6 +128,7 @@ impl BytecodeGenerator {
         match opcode {
             x if x == OpCode::CallIndirect.to_u32() => {}
             x if x == OpCode::Print.to_u32() => {}
+            x if x == OpCode::Invoke.to_u32() => {}
             _ => return,
         }
 
@@ -143,7 +144,9 @@ impl BytecodeGenerator {
 
     fn generate_local_memory_instruction(allocate: bool, slots: Instruction) -> Instruction {
         if slots == 0 {
-            return InstructionBuilder::new().add_opcode(OpCode::NoInstruction).build();
+            return InstructionBuilder::new()
+                .add_opcode(OpCode::NoInstruction)
+                .build();
         }
 
         if allocate {
@@ -293,37 +296,6 @@ impl ExpressionVisitor for BytecodeGenerator {
     fn visit_call(&mut self, function: &nova_tw::language::call::Call) -> Self::Output {
         if let Expression::Variable(variable) = &function.callee {
             let name = variable.name.object.to_string();
-            if name == "print" {
-                for argument in &function.arguments {
-                    self.evaluate(argument);
-                    self.check_call_and_load_return();
-
-                    let source = self.temp_stack.len() as Instruction - 1;
-                    self.temp_stack.pop();
-                    self.program
-                        .instructions
-                        .push(InstructionBuilder::new_print_instruction(source, false));
-                }
-                return;
-            }
-
-            if name == "println" {
-                for (index, argument) in function.arguments.iter().enumerate() {
-                    self.evaluate(argument);
-                    let source = self.temp_stack.len() as Instruction - 1;
-                    self.temp_stack.pop();
-                    let newline = if index == function.arguments.len() - 1 {
-                        true
-                    } else {
-                        false
-                    };
-                    self.program
-                        .instructions
-                        .push(InstructionBuilder::new_print_instruction(source, newline));
-                }
-                return;
-            }
-
             let parameter_start = self.temp_stack.len() as Instruction;
             for argument in &function.arguments {
                 self.evaluate(argument);
@@ -331,14 +303,30 @@ impl ExpressionVisitor for BytecodeGenerator {
 
             let parameters = function.arguments.len() as Instruction;
 
-            let name_index = self.get_immutable_index(&NovaObject::String(Box::new(name)));
-            self.program
-                .instructions
-                .push(InstructionBuilder::new_call_indirect_instruction(
-                    parameter_start,
-                    parameters,
-                    name_index,
-                ));
+            if let Some(index) = self.get_local_index(name.as_str()) {
+                let destination = self.temp_stack.len() as Instruction;
+                self.program
+                    .instructions
+                    .push(InstructionBuilder::new_load_local(destination, index));
+                self.temp_stack.push(());
+            } else {
+                let name = NovaObject::String(Box::new(name));
+                let name_index = self.get_immutable_index(&name);
+                let destination = self.temp_stack.len() as Instruction;
+                self.program
+                    .instructions
+                    .push(InstructionBuilder::new_load_global_indirect(
+                        destination,
+                        name_index,
+                    ));
+                self.temp_stack.push(());
+            }
+
+            self.temp_stack.pop();
+            let invoke_register = self.temp_stack.len() as Instruction;
+
+            self.add_instruction(InstructionBuilder::new_invoke_instruction(parameter_start, parameters, invoke_register));
+
             for _ in &function.arguments {
                 self.temp_stack.pop();
             }
@@ -461,7 +449,7 @@ impl StatementVisitor for BytecodeGenerator {
 
         self.execute(&while_loop.body);
 
-        let current_index = self.program.instructions.len() as Instruction - 1;
+        let current_index = self.program.instructions.len() as Instruction;
         let back_offset = current_index - loop_start;
 
         self.add_instruction(InstructionBuilder::new_jump_instruction(back_offset, false));
@@ -489,7 +477,10 @@ impl StatementVisitor for BytecodeGenerator {
             Self::generate_local_memory_instruction(true, num_locals as Instruction);
         self.program
             .instructions
-            .push(Self::generate_local_memory_instruction(false, num_locals as Instruction));
+            .push(Self::generate_local_memory_instruction(
+                false,
+                num_locals as Instruction,
+            ));
 
         self.scope -= 1;
         self.local_variable_count -= num_locals as u32;
@@ -528,7 +519,7 @@ impl StatementVisitor for BytecodeGenerator {
         }
 
         /* let place_holder =
-            self.add_instruction(InstructionBuilder::new_allocate_local(1 as Instruction)); */
+        self.add_instruction(InstructionBuilder::new_allocate_local(1 as Instruction)); */
 
         for (register_index, &local_index) in parameter_locals.iter().enumerate() {
             self.add_instruction(InstructionBuilder::new_store_local(

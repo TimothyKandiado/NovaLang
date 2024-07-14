@@ -67,6 +67,8 @@ pub enum OpCode {
     Print,
     /// Call a function [CALLINDIRECT DR:START_ARG SR1:NUM_ARG]
     CallIndirect,
+    /// Invoke call
+    Invoke,
     /// While loop
     While,
     /// Unconditional Loop

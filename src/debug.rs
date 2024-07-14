@@ -150,6 +150,17 @@ pub fn debug_instruction(
             );
         }
 
+        x if x == OpCode::Invoke as u32 => {
+            let parameter_start = InstructionDecoder::decode_destination_register(instruction);
+            let parameters = InstructionDecoder::decode_source_register_1(instruction);
+            let invoke_register = InstructionDecoder::decode_source_register_2(instruction);
+
+            return format!(
+                "INVOKE {} {} {} ",
+                parameter_start, parameters, invoke_register
+            );
+        }
+
         x if x == OpCode::ReturnNone as u32 => {
             return format!("RETURN_NONE");
         }
