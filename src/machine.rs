@@ -114,6 +114,9 @@ impl VirtualMachine {
         let opcode = InstructionDecoder::decode_opcode(instruction);
 
         match opcode {
+            x if x == OpCode::NoInstruction as u32 => {
+                return;
+            }
             // System Interrupt
             x if x == OpCode::Halt as u32 => {
                 self.running = false;

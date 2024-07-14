@@ -1,5 +1,6 @@
 #[derive(Debug, Clone, Copy)]
 pub enum OpCode {
+    NoInstruction,
     /// Copy a value between registers(MOVE A <- B)
     Move,
     /// Load a constant into a register (LOAD A <- K)

@@ -140,6 +140,18 @@ impl BytecodeGenerator {
                 .build(),
         );
     }
+
+    fn generate_local_memory_instruction(allocate: bool, slots: Instruction) -> Instruction {
+        if slots == 0 {
+            return InstructionBuilder::new().add_opcode(OpCode::NoInstruction).build();
+        }
+
+        if allocate {
+            return InstructionBuilder::new_allocate_local(slots);
+        }
+
+        InstructionBuilder::new_deallocate_local(slots)
+    }
 }
 
 impl ExpressionVisitor for BytecodeGenerator {
@@ -415,9 +427,8 @@ impl StatementVisitor for BytecodeGenerator {
         let jump_then_branch =
             self.add_instruction(InstructionBuilder::new_jump_instruction(1, true));
         self.execute(&if_statement.then_branch);
-        let current = self.program.instructions.len() as Instruction - 1;
+        let current = self.program.instructions.len() as Instruction;
         let offset = current - jump_then_branch;
-        
 
         let mut jump_correction = 0;
 
@@ -475,12 +486,10 @@ impl StatementVisitor for BytecodeGenerator {
         let indices = self.local_variable_indices.pop().unwrap();
         let num_locals = indices.len();
         self.program.instructions[placeholder_index as usize] =
-            InstructionBuilder::new_allocate_local(num_locals as Instruction);
+            Self::generate_local_memory_instruction(true, num_locals as Instruction);
         self.program
             .instructions
-            .push(InstructionBuilder::new_deallocate_local(
-                num_locals as Instruction,
-            ));
+            .push(Self::generate_local_memory_instruction(false, num_locals as Instruction));
 
         self.scope -= 1;
         self.local_variable_count -= num_locals as u32;

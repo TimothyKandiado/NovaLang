@@ -13,6 +13,9 @@ pub fn debug_instruction(
 
     //print!("(dbg[{}]) ", instruction_pointer);
     match opcode {
+        x if x == OpCode::NoInstruction as u32 => {
+            "NOINSTRUCTION".to_string()
+        }
         // System Interrupt
         x if x == OpCode::Halt as u32 => {
             return format!("HALT");
