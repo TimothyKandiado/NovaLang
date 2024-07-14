@@ -103,7 +103,6 @@ impl VirtualMachine {
             if immutable.is_callable() {
                 let callable = immutable.as_callable();
                 self.load_callable(callable);
-                continue;
             }
             self.immutables.push(immutable.clone());
         }
