@@ -39,8 +39,8 @@ pub enum NovaCallable<'a> {
 impl NovaCallable<'_> {
     pub fn get_name(&self) -> &str {
         match self {
-            NovaCallable::NovaFunction(ref function) => function.name.as_str(),
-            NovaCallable::NativeFunction(ref function) => function.name.as_str(),
+            NovaCallable::NovaFunction(function) => function.name.as_str(),
+            NovaCallable::NativeFunction(function) => function.name.as_str(),
             NovaCallable::None => "None"
         }
     }
@@ -101,7 +101,7 @@ impl Display for NovaObject {
     }
 }
 
-#[derive(Debug, Clone, Copy)]
+#[derive(Debug, Clone, Copy, PartialEq)]
 pub enum RegisterValueKind {
     None,
     /// Float32 value
@@ -136,15 +136,3 @@ impl RegisterValueKind {
     }
 }
 
-impl PartialEq for RegisterValueKind {
-    fn eq(&self, other: &Self) -> bool {
-        match (self, other) {
-            (Self::None, Self::None) => true,
-            (Self::Float64, Self::Float64) => true,
-            (Self::Bool, Self::Bool) => true,
-            (Self::MemAddress, Self::MemAddress) => true,
-            (Self::ImmAddress, Self::ImmAddress) => true,
-            _ => false,
-        }
-    }
-}

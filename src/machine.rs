@@ -137,7 +137,7 @@ impl VirtualMachine {
             }
         }
         
-        return 0;
+        0
     }
 
     fn execute_instruction(&mut self, instruction: Instruction) {
@@ -145,7 +145,6 @@ impl VirtualMachine {
 
         match opcode {
             x if x == OpCode::NoInstruction as u32 => {
-                return;
             }
             // System Interrupt
             x if x == OpCode::Halt as u32 => {
@@ -307,8 +306,8 @@ impl VirtualMachine {
         let return_address = self.registers[RegisterID::RPC as usize].value;
         let local_offset = self.registers[RegisterID::RLO as usize].value;
 
-        let old_registers = self.registers.clone();
-        let frame = Frame::new(old_registers.clone(), return_address, local_offset, false);
+        let old_registers = self.registers;
+        let frame = Frame::new(old_registers, return_address, local_offset, false);
 
         self.frames.push(frame.clone());
         self.clear_registers();
@@ -394,7 +393,6 @@ impl VirtualMachine {
                 }
 
                 self.registers[RegisterID::RPC as usize].value = address as u64;
-                return;
             }
 
             NovaCallable::NativeFunction(function) => {
@@ -412,8 +410,8 @@ impl VirtualMachine {
 
                 let result = (function.function)(arguments);
 
-                if result.is_err() {
-                    self.emit_error_with_message(&result.unwrap_err());
+                if let Err(error) = result {
+                    self.emit_error_with_message(&error);
                     return;
                 }
 
@@ -439,7 +437,6 @@ impl VirtualMachine {
 
             NovaCallable::None => {
                 self.emit_error_with_message("Called a None Value");
-                return;
             }
         }
     }
@@ -619,7 +616,7 @@ impl VirtualMachine {
                 let value1 = value1.to_string();
 
                 let mut new_value = value1;
-                new_value.push_str(&string);
+                new_value.push_str(string);
 
                 let new_object = NovaObject::String(Box::new(new_value));
                 let address = self.store_object_in_memory(new_object);
@@ -1068,7 +1065,7 @@ impl VirtualMachine {
     #[inline(always)]
     fn allocate_global(&mut self) -> Instruction {
         self.globals.push(Register::default());
-        return (self.globals.len() - 1) as Instruction;
+        (self.globals.len() - 1) as Instruction
     }
 
     /// set value of a specified global location
@@ -1414,7 +1411,7 @@ impl VirtualMachine {
 }
 
 #[allow(dead_code)]
-fn print_vec_of_registers(registers: &Vec<Register>) {
+fn print_vec_of_registers(registers: &[Register]) {
     println!("[");
     for (index, register) in registers.iter().enumerate() {
         println!("\t[{}] {}, ", index, register)

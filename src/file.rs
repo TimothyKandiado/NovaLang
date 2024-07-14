@@ -58,7 +58,7 @@ pub fn write_program_file(path: &str, program: &Program) -> Result<(), Box<dyn E
     write_immutables(program, &mut buffer)?;
 
     let mut file = fs::File::create(path)?;
-    file.write(&buffer)?;
+    file.write_all(&buffer)?;
 
     Ok(())
 }
@@ -88,7 +88,7 @@ fn write_immutables(program: &Program, buffer: &mut Vec<u8>) -> Result<(), Box<d
                 let length = string.len();
                 buffer.write_u64::<LittleEndian>(length as u64)?; // write size
                 let bytes = string.as_bytes();
-                buffer.write(bytes)?;
+                buffer.write_all(bytes)?;
             }
 
             NovaObject::NovaFunction(function) => {
@@ -100,7 +100,7 @@ fn write_immutables(program: &Program, buffer: &mut Vec<u8>) -> Result<(), Box<d
                 let length = function.name.len();
                 buffer.write_u64::<LittleEndian>(length as u64)?;
                 let bytes = function.name.as_bytes();
-                buffer.write(bytes)?;
+                buffer.write_all(bytes)?;
             }
 
             NovaObject::None | NovaObject::Float64(_)| NovaObject::NativeFunction(_) => {

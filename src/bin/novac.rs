@@ -18,7 +18,7 @@ fn main() {
     }
 }
 
-fn run_file(path: &str, _arguments: &Vec<String>) {
+fn run_file(path: &str, _arguments: &[String]) {
     let result = fs::read_to_string(path);
     if let Err(err) = result {
         println!("{}", err);

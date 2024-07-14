@@ -66,7 +66,7 @@ pub fn time_native() -> NativeFunction {
                         #[cfg(feature = "debug")]
                         println!("epoch = {}", epoch);
 
-                        return Ok(NovaObject::Float64(epoch as f64));
+                        Ok(NovaObject::Float64(epoch as f64))
                     }
 
                     "micro" => {
@@ -74,7 +74,7 @@ pub fn time_native() -> NativeFunction {
                         #[cfg(feature = "debug")]
                         println!("epoch = {}", epoch);
 
-                        return Ok(NovaObject::Float64(epoch as f64));
+                        Ok(NovaObject::Float64(epoch as f64))
                     }
 
                     "sec" => {
@@ -82,7 +82,7 @@ pub fn time_native() -> NativeFunction {
                         #[cfg(feature = "debug")]
                         println!("epoch = {}", epoch);
 
-                        return Ok(NovaObject::Float64(epoch as f64));
+                        Ok(NovaObject::Float64(epoch as f64))
                     }
 
                     "nano" => {
@@ -90,14 +90,14 @@ pub fn time_native() -> NativeFunction {
                         #[cfg(feature = "debug")]
                         println!("epoch = {}", epoch);
 
-                        return Ok(NovaObject::Float64(epoch as f64));
+                        Ok(NovaObject::Float64(epoch as f64))
                     }
 
                     _ => {
-                        return Err(format!(
+                        Err(format!(
                             "Unknown option: {}",
                             argument
-                        ));
+                        ))
                     }
         }
     };

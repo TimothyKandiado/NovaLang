@@ -249,8 +249,8 @@ impl InstructionBuilder {
     }
 
     pub fn clear_address_small(mut self) -> Self {
-        self.instruction = self.instruction >> 16;
-        self.instruction = self.instruction << 16;
+        self.instruction >>= 16;
+        self.instruction <<= 16;
         self
     }
 }
@@ -271,8 +271,8 @@ impl InstructionDecoder {
         let second_half = second_half as u64;
 
         let first_half = first_half << 32;
-        let full = first_half + second_half;
-        full
+        
+        first_half + second_half
     }
 
     #[inline(always)]

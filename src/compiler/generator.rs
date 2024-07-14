@@ -237,7 +237,6 @@ impl ExpressionVisitor for BytecodeGenerator {
                     "[Unhandled unary operator: {:?}]",
                     unary.operator.token_type
                 ));
-                return;
             }
         }
     }
@@ -342,7 +341,7 @@ impl ExpressionVisitor for BytecodeGenerator {
             return;
         }
 
-        self.generate_error(format!("Error compiling function call"));
+        self.generate_error("Error compiling function call".to_string());
     }
 
     fn visit_variable(&mut self, variable: &nova_tw::language::variable::Variable) -> Self::Output {
@@ -366,7 +365,6 @@ impl ExpressionVisitor for BytecodeGenerator {
                 name_index,
             ));
         self.temp_stack.push(());
-        return;
     }
 
     fn visit_assign(&mut self, assign: &nova_tw::language::assignment::Assign) -> Self::Output {

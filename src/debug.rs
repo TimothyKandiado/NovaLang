@@ -4,7 +4,7 @@ use crate::{
 };
 
 pub fn debug_instruction(
-    instructions: &Vec<Instruction>,
+    instructions: &[Instruction],
     instruction_pointer: Instruction,
 ) -> String {
     let instruction = instructions[instruction_pointer as usize];
@@ -18,7 +18,7 @@ pub fn debug_instruction(
         }
         // System Interrupt
         x if x == OpCode::Halt as u32 => {
-            return format!("HALT");
+            "HALT".to_string()
         }
 
         // Binary Operations
@@ -47,53 +47,53 @@ pub fn debug_instruction(
         x if x == OpCode::DefineGlobalIndirect as u32 => {
             let address = InstructionDecoder::decode_immutable_address_small(instruction);
 
-            return format!("DEFINEGLOBALINDIRECT {}", address);
+            format!("DEFINEGLOBALINDIRECT {}", address)
         }
 
         x if x == OpCode::StoreGlobalIndirect as u32 => {
             let source1 = InstructionDecoder::decode_source_register_1(instruction);
             let address = InstructionDecoder::decode_immutable_address_small(instruction);
 
-            return format!("STOREGLOBALINDIRECT {} {}", source1, address);
+            format!("STOREGLOBALINDIRECT {} {}", source1, address)
         }
 
         x if x == OpCode::LoadGlobalIndirect as u32 => {
             let destination = InstructionDecoder::decode_destination_register(instruction);
             let address = InstructionDecoder::decode_immutable_address_small(instruction);
 
-            return format!("LOADGLOBALINDIRECT {} {}", destination, address);
+            format!("LOADGLOBALINDIRECT {} {}", destination, address)
         }
 
         x if x == OpCode::LoadGlobal as u32 => {
             let destination = InstructionDecoder::decode_destination_register(instruction);
             let address = InstructionDecoder::decode_immutable_address_small(instruction);
 
-            return format!("LOADGLOBAL {} {}", destination, address);
+            format!("LOADGLOBAL {} {}", destination, address)
         }
 
         x if x == OpCode::AllocateLocal as u32 => {
             let number = InstructionDecoder::decode_immutable_address_small(instruction);
 
-            return format!("ALLOCATELOCAL {}", number);
+            format!("ALLOCATELOCAL {}", number)
         }
 
         x if x == OpCode::DeallocateLocal as u32 => {
             let number = InstructionDecoder::decode_immutable_address_small(instruction);
-            return format!("DEALLOCATELOCAL {}", number);
+            format!("DEALLOCATELOCAL {}", number)
         }
 
         x if x == OpCode::StoreLocal as u32 => {
             let source1 = InstructionDecoder::decode_source_register_1(instruction);
             let address = InstructionDecoder::decode_immutable_address_small(instruction);
 
-            return format!("STORELOCAL {} {}", source1, address);
+            format!("STORELOCAL {} {}", source1, address)
         }
 
         x if x == OpCode::LoadLocal as u32 => {
             let destination = InstructionDecoder::decode_destination_register(instruction);
             let address = InstructionDecoder::decode_immutable_address_small(instruction);
 
-            return format!("LOADLOCAL {} {}", destination, address);
+            format!("LOADLOCAL {} {}", destination, address)
         }
 
         // Control flow
@@ -101,42 +101,42 @@ pub fn debug_instruction(
             let source1 = InstructionDecoder::decode_source_register_1(instruction);
             let source2 = InstructionDecoder::decode_source_register_2(instruction);
 
-            return format!("LESS {} {}", source1, source2);
+            format!("LESS {} {}", source1, source2)
         }
 
         x if x == OpCode::LessEqual as u32 => {
             let source1 = InstructionDecoder::decode_source_register_1(instruction);
             let source2 = InstructionDecoder::decode_source_register_2(instruction);
 
-            return format!("LESSEQUAL {} {}", source1, source2);
+            format!("LESSEQUAL {} {}", source1, source2)
         }
 
         x if x == OpCode::Equal as u32 => {
             let source1 = InstructionDecoder::decode_source_register_1(instruction);
             let source2 = InstructionDecoder::decode_source_register_2(instruction);
 
-            return format!("EQUAL {} {}", source1, source2);
+            format!("EQUAL {} {}", source1, source2)
         }
 
         x if x == OpCode::JumpFalse as u32 => {
             let source1 = InstructionDecoder::decode_source_register_1(instruction);
 
-            return format!("JUMPFALSE {}", source1);
+            format!("JUMPFALSE {}", source1)
         }
 
         x if x == OpCode::Jump as u32 => {
             let offset = InstructionDecoder::decode_immutable_address_small(instruction);
             let direction = InstructionDecoder::decode_destination_register(instruction);
 
-            return format!(
+            format!(
                 "JUMP {} {}",
                 offset,
                 if direction == 0 { "back" } else { "forward" }
-            );
+            )
         }
 
         x if x == OpCode::NewFrame as u32 => {
-            return format!("NEWFRAME");
+            "NEWFRAME".to_string()
         }
 
         x if x == OpCode::CallIndirect as u32 => {
@@ -144,10 +144,10 @@ pub fn debug_instruction(
             let parameters = InstructionDecoder::decode_source_register_1(instruction);
             let name_address = InstructionDecoder::decode_immutable_address_small(instruction);
 
-            return format!(
+            format!(
                 "CALL_INDIRECT {} {} {} ",
                 parameter_start, parameters, name_address
-            );
+            )
         }
 
         x if x == OpCode::Invoke as u32 => {
@@ -155,30 +155,30 @@ pub fn debug_instruction(
             let parameters = InstructionDecoder::decode_source_register_1(instruction);
             let invoke_register = InstructionDecoder::decode_source_register_2(instruction);
 
-            return format!(
+            format!(
                 "INVOKE {} {} {} ",
                 parameter_start, parameters, invoke_register
-            );
+            )
         }
 
         x if x == OpCode::ReturnNone as u32 => {
-            return format!("RETURN_NONE");
+            "RETURN_NONE".to_string()
         }
 
         x if x == OpCode::ReturnVal as u32 => {
             let source = InstructionDecoder::decode_source_register_1(instruction);
-            return format!("RETURN_VAL {}", source);
+            format!("RETURN_VAL {}", source)
         }
 
         x if x == OpCode::LoadReturn as u32 => {
             let destination = InstructionDecoder::decode_destination_register(instruction);
-            return format!("LOADRETURN {}", destination);
+            format!("LOADRETURN {}", destination)
         }
 
         // IO
         x if x == OpCode::Print as u32 => {
             let source = InstructionDecoder::decode_source_register_1(instruction);
-            return format!("PRINT {}", source);
+            format!("PRINT {}", source)
         }
 
         // Logical
@@ -186,22 +186,22 @@ pub fn debug_instruction(
             let source1 = InstructionDecoder::decode_source_register_1(instruction);
             let source2 = InstructionDecoder::decode_source_register_2(instruction);
 
-            return format!("AND {} {}", source1, source2);
+            format!("AND {} {}", source1, source2)
         }
 
         x if x == OpCode::Not as u32 => {
             let source1 = InstructionDecoder::decode_source_register_1(instruction);
 
-            return format!("NOT {}", source1);
+            format!("NOT {}", source1)
         }
 
         x if x == OpCode::Neg as u32 => {
             let source1 = InstructionDecoder::decode_source_register_1(instruction);
 
-            return format!("NEGATE {}", source1);
+            format!("NEGATE {}", source1)
         }
 
-        _ => return format!("Unsupported opcode instruction ({:#x})", opcode),
+        _ => format!("Unsupported opcode instruction ({:#x})", opcode),
     }
 }
 
@@ -210,37 +210,37 @@ fn binary_op(name: &str, instruction: Instruction) -> String {
     let source_register_1 = InstructionDecoder::decode_source_register_1(instruction);
     let source_register_2 = InstructionDecoder::decode_source_register_2(instruction);
 
-    return format!(
+    format!(
         "{} {} {} {}",
         name, destination_register, source_register_1, source_register_2
-    );
+    )
 }
 
 fn load_constant_to_register(instruction: Instruction) -> String {
     let destination_register = InstructionDecoder::decode_destination_register(instruction);
     let immutable_address = InstructionDecoder::decode_immutable_address_small(instruction);
 
-    return format!("LOADK {} {}", destination_register, immutable_address);
+    format!("LOADK {} {}", destination_register, immutable_address)
 }
 
 fn load_bool_to_register(instruction: Instruction) -> String {
     let destination = InstructionDecoder::decode_destination_register(instruction);
     let boolean = InstructionDecoder::decode_immutable_address_small(instruction);
 
-    return format!(
+    format!(
         "LOADBOOL {} {}",
         destination,
         if boolean == 0 { "false" } else { "true" }
-    );
+    )
 }
 
 fn load_number_to_register(destination: Instruction, number: f32) -> String {
-    return format!("LOADFLOAT {} {}", destination, number);
+    format!("LOADFLOAT {} {}", destination, number)
 }
 
 fn move_register(instruction: Instruction) -> String {
     let destination = InstructionDecoder::decode_destination_register(instruction);
     let source = InstructionDecoder::decode_source_register_1(instruction);
 
-    return format!("MOVE {} {}", destination, source);
+    format!("MOVE {} {}", destination, source)
 }
