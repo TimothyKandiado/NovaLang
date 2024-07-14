@@ -82,7 +82,7 @@ impl VirtualMachine {
         self.create_global(name, global_location);
         let nova_object = callable.as_object();
         let memory_location = self.store_object_in_memory(nova_object);
-        let global_value = Register::new(RegisterValueKind::MemAddress, memory_location);
+        let global_value = Register::new(RegisterValueKind::MemAddress, memory_location as u64);
         self.set_global_value(global_location, global_value);
     }
 
@@ -117,7 +117,7 @@ impl VirtualMachine {
         self.running = true;
         let program_counter = Register {
             kind: RegisterValueKind::MemAddress,
-            value: offset + PC_START,
+            value: (offset + PC_START) as u64,
         };
 
         self.registers[RegisterID::RPC as usize] = program_counter;
@@ -190,8 +190,12 @@ impl VirtualMachine {
                 self.load_bool_to_register(instruction);
             }
 
-            x if x == OpCode::LoadFloat as u32 => {
+            x if x == OpCode::LoadFloat32 as u32 => {
                 self.load_float32_to_register(instruction);
+            }
+
+            x if x == OpCode::LoadFloat64 as u32 => {
+                self.load_float64_to_register(instruction);
             }
 
             x if x == OpCode::Move as u32 => {
@@ -312,21 +316,21 @@ impl VirtualMachine {
         self.set_local_offset();
 
         self.allocate_local_variables(num_locals);
-        self.registers[RegisterID::RMax as usize] = Register::new(RegisterValueKind::MemAddress, num_locals);
+        self.registers[RegisterID::RMax as usize] = Register::new(RegisterValueKind::MemAddress, num_locals as u64);
 
         frame
     }
 
     #[inline(always)]
     fn set_local_offset(&mut self) {
-        self.registers[RegisterID::RLO as usize].value = (self.locals.len()) as Instruction;
+        self.registers[RegisterID::RLO as usize].value = (self.locals.len()) as u64;
     }
 
     #[inline(always)]
     fn drop_frame(&mut self) {
         let return_value = self.registers[RegisterID::RRTN as usize];
         let num_locals = self.registers[RegisterID::RMax as usize].value;
-        self.deallocate_local_variables(num_locals);
+        self.deallocate_local_variables(num_locals as u32);
 
         let frame = self.frames.pop();
 
@@ -389,7 +393,7 @@ impl VirtualMachine {
                     source_index += 1;
                 }
 
-                self.registers[RegisterID::RPC as usize].value = address;
+                self.registers[RegisterID::RPC as usize].value = address as u64;
                 return;
             }
 
@@ -416,8 +420,8 @@ impl VirtualMachine {
                 let result = result.unwrap();
 
                 match result {
-                    NovaObject::Float32(value) => {
-                        let register = Register::new(RegisterValueKind::Float32, value.to_bits());
+                    NovaObject::Float64(value) => {
+                        let register = Register::new(RegisterValueKind::Float64, value.to_bits());
                         self.set_value_in_register(RegisterID::RRTN as Instruction, register);
                     }
 
@@ -427,7 +431,7 @@ impl VirtualMachine {
 
                     _ => {
                         let memory_location = self.store_object_in_memory(result);
-                        let register = Register::new(RegisterValueKind::MemAddress, memory_location);
+                        let register = Register::new(RegisterValueKind::MemAddress, memory_location as u64);
                         self.set_value_in_register(RegisterID::RRTN as Instruction, register);
                     }
                 }
@@ -472,8 +476,8 @@ impl VirtualMachine {
         let register = self.get_register(source);
 
         match register.kind {
-            RegisterValueKind::Float32 => {
-                print!("{}", f32::from_bits(register.value))
+            RegisterValueKind::Float64 => {
+                print!("{}", f64::from_bits(register.value))
             }
             RegisterValueKind::None => {
                 print!("None")
@@ -504,12 +508,12 @@ impl VirtualMachine {
         let destination = source; // negate value in place
 
         let register = self.get_register(source);
-        if let RegisterValueKind::Float32 = register.kind {
-            let value = f32::from_bits(register.value);
+        if let RegisterValueKind::Float64 = register.kind {
+            let value = f64::from_bits(register.value);
             let value = -value;
             let value = value.to_bits();
 
-            let register = Register::new(RegisterValueKind::Float32, value);
+            let register = Register::new(RegisterValueKind::Float64, value);
             self.set_value_in_register(destination, register);
             return;
         }
@@ -526,11 +530,11 @@ impl VirtualMachine {
         let register_1 = self.get_register(source_register_1);
         let register_2 = self.get_register(source_register_2);
 
-        if let (RegisterValueKind::Float32, RegisterValueKind::Float32) =
+        if let (RegisterValueKind::Float64, RegisterValueKind::Float64) =
             (register_1.kind, register_2.kind)
         {
-            let value_1 = f32::from_bits(register_1.value);
-            let value_2 = f32::from_bits(register_2.value);
+            let value_1 = f64::from_bits(register_1.value);
+            let value_2 = f64::from_bits(register_2.value);
 
             let sum = value_1 + value_2;
             let sum = sum.to_bits();
@@ -540,12 +544,12 @@ impl VirtualMachine {
             return;
         }
 
-        if let (RegisterValueKind::MemAddress, RegisterValueKind::Float32) =
+        if let (RegisterValueKind::MemAddress, RegisterValueKind::Float64) =
             (register_1.kind, register_2.kind)
         {
             let object1 = self.load_object_from_memory(register_1.value);
             if let NovaObject::String(string) = object1 {
-                let value2 = f32::from_bits(register_2.value);
+                let value2 = f64::from_bits(register_2.value);
                 let value2 = value2.to_string();
 
                 let mut new_value = *string.clone();
@@ -562,12 +566,12 @@ impl VirtualMachine {
             ));
         }
 
-        if let (RegisterValueKind::ImmAddress, RegisterValueKind::Float32) =
+        if let (RegisterValueKind::ImmAddress, RegisterValueKind::Float64) =
             (register_1.kind, register_2.kind)
         {
             let object1 = &self.immutables[register_1.value as usize];
             if let NovaObject::String(string) = object1 {
-                let value2 = f32::from_bits(register_2.value);
+                let value2 = f64::from_bits(register_2.value);
                 let value2 = value2.to_string();
 
                 let mut new_value = *string.clone();
@@ -584,12 +588,12 @@ impl VirtualMachine {
             ));
         }
 
-        if let (RegisterValueKind::Float32, RegisterValueKind::MemAddress) =
+        if let (RegisterValueKind::Float64, RegisterValueKind::MemAddress) =
             (register_1.kind, register_2.kind)
         {
             let object2 = self.load_object_from_memory(register_2.value);
             if let NovaObject::String(string) = object2 {
-                let value1 = f32::from_bits(register_1.value);
+                let value1 = f64::from_bits(register_1.value);
                 let value1 = value1.to_string();
 
                 let mut new_value = value1;
@@ -606,12 +610,12 @@ impl VirtualMachine {
             ));
         }
 
-        if let (RegisterValueKind::Float32, RegisterValueKind::ImmAddress) =
+        if let (RegisterValueKind::Float64, RegisterValueKind::ImmAddress) =
             (register_1.kind, register_2.kind)
         {
             let object2 = &self.immutables[register_2.value as usize];
             if let NovaObject::String(string) = object2 {
-                let value1 = f32::from_bits(register_1.value);
+                let value1 = f64::from_bits(register_1.value);
                 let value1 = value1.to_string();
 
                 let mut new_value = value1;
@@ -643,11 +647,11 @@ impl VirtualMachine {
         let register_1 = self.get_register(source_register_1);
         let register_2 = self.get_register(source_register_2);
 
-        if let (RegisterValueKind::Float32, RegisterValueKind::Float32) =
+        if let (RegisterValueKind::Float64, RegisterValueKind::Float64) =
             (register_1.kind, register_2.kind)
         {
-            let value_1 = f32::from_bits(register_1.value);
-            let value_2 = f32::from_bits(register_2.value);
+            let value_1 = f64::from_bits(register_1.value);
+            let value_2 = f64::from_bits(register_2.value);
 
             let sub = value_1 - value_2;
             let sub = sub.to_bits();
@@ -672,11 +676,11 @@ impl VirtualMachine {
         let register_1 = self.get_register(source_register_1);
         let register_2 = self.get_register(source_register_2);
 
-        if let (RegisterValueKind::Float32, RegisterValueKind::Float32) =
+        if let (RegisterValueKind::Float64, RegisterValueKind::Float64) =
             (register_1.kind, register_2.kind)
         {
-            let value_1 = f32::from_bits(register_1.value);
-            let value_2 = f32::from_bits(register_2.value);
+            let value_1 = f64::from_bits(register_1.value);
+            let value_2 = f64::from_bits(register_2.value);
 
             let mul = value_1 * value_2;
             let mul = mul.to_bits();
@@ -701,11 +705,11 @@ impl VirtualMachine {
         let register_1 = self.get_register(source_register_1);
         let register_2 = self.get_register(source_register_2);
 
-        if let (RegisterValueKind::Float32, RegisterValueKind::Float32) =
+        if let (RegisterValueKind::Float64, RegisterValueKind::Float64) =
             (register_1.kind, register_2.kind)
         {
-            let value_1 = f32::from_bits(register_1.value);
-            let value_2 = f32::from_bits(register_2.value);
+            let value_1 = f64::from_bits(register_1.value);
+            let value_2 = f64::from_bits(register_2.value);
 
             let div = value_1 / value_2;
             let div = div.to_bits();
@@ -730,11 +734,11 @@ impl VirtualMachine {
         let register_1 = self.get_register(source_register_1);
         let register_2 = self.get_register(source_register_2);
 
-        if let (RegisterValueKind::Float32, RegisterValueKind::Float32) =
+        if let (RegisterValueKind::Float64, RegisterValueKind::Float64) =
             (register_1.kind, register_2.kind)
         {
-            let value_1 = f32::from_bits(register_1.value);
-            let value_2 = f32::from_bits(register_2.value);
+            let value_1 = f64::from_bits(register_1.value);
+            let value_2 = f64::from_bits(register_2.value);
 
             let pow = value_1.powf(value_2);
             let pow = pow.to_bits();
@@ -759,13 +763,13 @@ impl VirtualMachine {
         let register_1 = self.get_register(source_register_1);
         let register_2 = self.get_register(source_register_2);
 
-        if let (RegisterValueKind::Float32, RegisterValueKind::Float32) =
+        if let (RegisterValueKind::Float64, RegisterValueKind::Float64) =
             (register_1.kind, register_2.kind)
         {
-            let value_1 = f32::from_bits(register_1.value) as i32;
-            let value_2 = f32::from_bits(register_2.value) as i32;
+            let value_1 = f64::from_bits(register_1.value) as i32;
+            let value_2 = f64::from_bits(register_2.value) as i32;
 
-            let modulus = (value_1 % value_2) as f32;
+            let modulus = (value_1 % value_2) as f64;
             let modulus = modulus.to_bits();
 
             let new_value = Register::new(register_1.kind, modulus);
@@ -865,7 +869,7 @@ impl VirtualMachine {
     fn is_truthy(&self, register: Register) -> bool {
         match register.kind {
             RegisterValueKind::None => false,
-            RegisterValueKind::Float32 => true,
+            RegisterValueKind::Float64 => true,
             RegisterValueKind::Bool => register.value == 1,
             RegisterValueKind::MemAddress => true,
             RegisterValueKind::ImmAddress => true,
@@ -891,9 +895,9 @@ impl VirtualMachine {
         let offset = InstructionDecoder::decode_immutable_address_small(instruction);
         let direction = InstructionDecoder::decode_destination_register(instruction);
         if direction == 0 {
-            self.registers[RegisterID::RPC as usize].value -= offset + 1; // backward jump, add one since the intepreter will automatically add 1 after instruction
+            self.registers[RegisterID::RPC as usize].value -= offset as u64 + 1; // backward jump, add one since the intepreter will automatically add 1 after instruction
         } else {
-            self.registers[RegisterID::RPC as usize].value += offset - 1; // forward jump, minus one since the intepreter will automatically add 1 after instruction
+            self.registers[RegisterID::RPC as usize].value += offset as u64 - 1; // forward jump, minus one since the intepreter will automatically add 1 after instruction
         }
     }
 
@@ -902,7 +906,7 @@ impl VirtualMachine {
         let register = self.get_register(register_address);
 
         let value = match register.kind {
-            RegisterValueKind::Float32 => NovaObject::Float32(f32::from_bits(register.value)),
+            RegisterValueKind::Float64 => NovaObject::Float64(f64::from_bits(register.value)),
             RegisterValueKind::None => NovaObject::None,
             RegisterValueKind::MemAddress => self.load_object_from_memory(register.value).clone(),
             RegisterValueKind::ImmAddress => self.immutables[register.value as usize].clone(),
@@ -919,7 +923,7 @@ impl VirtualMachine {
 
         let register = Register {
             kind: RegisterValueKind::ImmAddress,
-            value: immutable_address,
+            value: immutable_address as u64,
         };
         self.set_value_in_register(destination_register, register);
     }
@@ -930,6 +934,17 @@ impl VirtualMachine {
 
         let number = self.get_next_instruction();
         let number = f32::from_bits(number);
+        self.load_number_to_register(destination_register, number as f64);
+    }
+
+    #[inline(always)]
+    fn load_float64_to_register(&mut self, instruction: Instruction) {
+        let destination_register = InstructionDecoder::decode_destination_register(instruction);
+
+        let first_half = self.get_next_instruction();
+        let second_half = self.get_next_instruction();
+        let number = InstructionDecoder::merge_u32s(first_half, second_half);
+        let number = f64::from_bits(number);
         self.load_number_to_register(destination_register, number);
     }
 
@@ -942,14 +957,14 @@ impl VirtualMachine {
 
     #[inline(always)]
     fn load_memory_address_to_register(&mut self, destination: Instruction, address: Instruction) {
-        let value = Register::new(RegisterValueKind::MemAddress, address);
+        let value = Register::new(RegisterValueKind::MemAddress, address as u64);
         self.set_value_in_register(destination, value);
     }
 
     #[inline(always)]
-    fn load_number_to_register(&mut self, destination: Instruction, number: f32) {
+    fn load_number_to_register(&mut self, destination: Instruction, number: f64) {
         let number = number.to_bits();
-        let register = Register::new(RegisterValueKind::Float32, number);
+        let register = Register::new(RegisterValueKind::Float64, number);
         self.set_value_in_register(destination, register);
     }
 
@@ -957,7 +972,7 @@ impl VirtualMachine {
     fn load_bool_to_register(&mut self, instruction: Instruction) {
         let destination = InstructionDecoder::decode_destination_register(instruction);
         let boolean = InstructionDecoder::decode_immutable_address_small(instruction);
-        let register = Register::new(RegisterValueKind::Float32, boolean);
+        let register = Register::new(RegisterValueKind::Float64, boolean as u64);
         self.set_value_in_register(destination, register);
     }
 
@@ -1021,7 +1036,7 @@ impl VirtualMachine {
 
     /// load an object from memory given the memory location
     #[inline(always)]
-    fn load_object_from_memory(&self, address: Instruction) -> &NovaObject {
+    fn load_object_from_memory(&self, address: u64) -> &NovaObject {
         &self.memory[address as usize]
     }
 
@@ -1062,7 +1077,7 @@ impl VirtualMachine {
         let current_value = self.globals[address as usize];
 
         if current_value.kind.is_mem_address() {
-            self.free_memory_location(current_value.value);
+            self.free_memory_location(current_value.value as u32);
         }
 
         self.globals[address as usize] = new_value;
@@ -1170,7 +1185,7 @@ impl VirtualMachine {
 
         let register = self.get_register(source);
         let local_offset = self.registers[RegisterID::RLO as usize].value;
-        self.locals[(address + local_offset) as usize] = register;
+        self.locals[(address + local_offset as u32) as usize] = register;
         self.clear_register(source);
     }
 
@@ -1180,7 +1195,7 @@ impl VirtualMachine {
         let address = InstructionDecoder::decode_immutable_address_small(instruction);
 
         let local_offset = self.registers[RegisterID::RLO as usize].value;
-        let register = self.locals[(address + local_offset) as usize];
+        let register = self.locals[(address as u64 + local_offset) as usize];
         self.set_value_in_register(destination, register);
     }
 
@@ -1193,9 +1208,9 @@ impl VirtualMachine {
     fn compare_registers(&mut self, op: OpCode, first: Register, second: Register) -> bool {
         match op {
             OpCode::Less => {
-                if first.kind.is_float32() && second.kind.is_float32() {
-                    let first = f32::from_bits(first.value);
-                    let second = f32::from_bits(second.value);
+                if first.kind.is_float64() && second.kind.is_float64() {
+                    let first = f64::from_bits(first.value);
+                    let second = f64::from_bits(second.value);
                     return first < second;
                 }
 
@@ -1234,9 +1249,9 @@ impl VirtualMachine {
             }
 
             OpCode::LessEqual => {
-                if first.kind.is_float32() && second.kind.is_float32() {
-                    let first = f32::from_bits(first.value);
-                    let second = f32::from_bits(second.value);
+                if first.kind.is_float64() && second.kind.is_float64() {
+                    let first = f64::from_bits(first.value);
+                    let second = f64::from_bits(second.value);
                     return first <= second;
                 }
 
@@ -1276,7 +1291,7 @@ impl VirtualMachine {
                     return true;
                 }
 
-                if first.kind.is_float32() && second.kind.is_float32() {
+                if first.kind.is_float64() && second.kind.is_float64() {
                     return first.value == second.value;
                 }
 

@@ -1,12 +1,9 @@
-use crate::{
-    instruction::Instruction,
-    register::{Register, RegisterID},
-};
+use crate::register::{Register, RegisterID};
 
 #[derive(Debug, Clone)]
 pub struct Frame {
-    pub return_address: Instruction,
-    pub local_offset: Instruction,
+    pub return_address: u64,
+    pub local_offset: u64,
     pub is_main: bool,
     pub registers: [Register; RegisterID::RMax as usize + 1],
 }
@@ -15,8 +12,8 @@ impl Frame {
     #[inline(always)]
     pub fn new(
         registers: [Register; RegisterID::RMax as usize + 1],
-        return_address: Instruction,
-        local_offset: Instruction,
+        return_address: u64,
+        local_offset: u64,
         is_main: bool,
     ) -> Self {
         Self {

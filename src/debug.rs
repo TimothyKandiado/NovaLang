@@ -34,7 +34,7 @@ pub fn debug_instruction(
 
         x if x == OpCode::LoadBool as u32 => load_bool_to_register(instruction),
 
-        x if x == OpCode::LoadFloat as u32 => {
+        x if x == OpCode::LoadFloat32 as u32 => {
             let destination_register = InstructionDecoder::decode_destination_register(instruction);
             let number = instructions[instruction_pointer as usize + 1];
             let number = f32::from_bits(number);

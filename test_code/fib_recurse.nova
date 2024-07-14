@@ -1,3 +1,5 @@
+time_type := "sec"
+
 fn fibonacci(value)
     # println("current value = ", value)
 
@@ -12,5 +14,14 @@ fn fibonacci(value)
     return fibonacci(value - 1) + fibonacci(value - 2)
 end
 
-value := fibonacci(30)
-print("fibonacci = ", value)
+start_time := time(time_type)
+println("start time: ", start_time)
+number := 35
+value := fibonacci(number)
+
+end_time := time(time_type)
+println("end time: ", end_time)
+
+println("fibonacci(", number, ") = ", value)
+time_elapsed := end_time - start_time
+println("Time elapsed = ", time_elapsed, " ", time_type)

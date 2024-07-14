@@ -43,7 +43,7 @@ fn debug_code(program: &Program) {
         println!("[{}]: {}", index, instruction_dbg);
 
         let code = InstructionDecoder::decode_opcode(program.instructions[index]);
-        if code == OpCode::LoadFloat as u32 {
+        if code == OpCode::LoadFloat32 as u32 {
             index += 1;
         }
 

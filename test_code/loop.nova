@@ -1,0 +1,18 @@
+fn main()
+    iterations := 1E8
+    index := 0
+
+    println(iterations, " iterations")
+
+    start_time := time("sec")
+
+    while index < iterations
+        index = index + 1
+    end
+
+    end_time := time("sec")
+    println("Elapsed time = ", end_time - start_time)
+end
+
+println("Looping benchmark")
+main()

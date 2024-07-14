@@ -1,6 +1,6 @@
 use std::fmt::Display;
 
-use crate::{instruction::Instruction, object::RegisterValueKind};
+use crate::object::RegisterValueKind;
 
 pub enum RegisterID {
     R0,
@@ -31,11 +31,11 @@ pub enum RegisterID {
 #[derive(Debug, Clone, Copy)]
 pub struct Register {
     pub kind: RegisterValueKind,
-    pub value: Instruction,
+    pub value: u64,
 }
 
 impl Register {
-    pub fn new(kind: RegisterValueKind, value: Instruction) -> Self {
+    pub fn new(kind: RegisterValueKind, value: u64) -> Self {
         Self { kind, value }
     }
 
@@ -59,8 +59,8 @@ impl Default for Register {
 impl Display for Register {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         let description = match self.kind {
-            RegisterValueKind::Float32 => {
-                format!("{:<10} : {:>10}", "Float32", f32::from_bits(self.value))
+            RegisterValueKind::Float64 => {
+                format!("{:<10} : {:>10}", "Float64", f64::from_bits(self.value))
             }
             RegisterValueKind::Bool => {
                 format!("{:<10} : {:>10}", "Bool", self.value == 1)

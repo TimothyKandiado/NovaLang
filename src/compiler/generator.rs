@@ -251,6 +251,14 @@ impl ExpressionVisitor for BytecodeGenerator {
         let register_index = self.temp_stack.len() as Instruction;
         match object {
             Object::Number(number) => {
+                if number >= f32::MAX as f64 {
+                    self.add_instruction(InstructionBuilder::new().add_opcode(OpCode::LoadFloat64).add_destination_register(register_index).build());
+                    let number_bits = number.to_bits();
+                    let (first, second) = InstructionDecoder::split_u64(number_bits);
+                    self.add_instruction(first);
+                    self.add_instruction(second);
+                }
+
                 let number = number as f32;
                 self.program
                     .instructions

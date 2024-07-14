@@ -21,5 +21,6 @@ dbg_step = ["dbg_local", "dbg_code"]
 
 [dependencies]
 byteorder = "1.5.0"
+chrono = "0.4.38"
 memuse = "0.2.1"
 nova_tw = {git = "https://github.com/TimothyKandiado/NovaLang-TW"}

@@ -181,7 +181,7 @@ impl InstructionBuilder {
 
     pub fn new_load_float32_instruction(destination: Instruction) -> Instruction {
         InstructionBuilder::new()
-            .add_opcode(OpCode::LoadFloat)
+            .add_opcode(OpCode::LoadFloat32)
             .add_destination_register(destination)
             .build()
     }
@@ -257,6 +257,24 @@ impl InstructionBuilder {
 
 pub struct InstructionDecoder {}
 impl InstructionDecoder {
+    #[inline(always)]
+    pub fn split_u64(value: u64) -> (Instruction, Instruction) {
+        let first_half = (value >> 32) as u32;
+        let last_half = value as u32;
+
+        (first_half, last_half)
+    }
+
+    #[inline(always)]
+    pub fn merge_u32s(first_half: u32, second_half: u32) -> u64 {
+        let first_half = first_half as u64;
+        let second_half = second_half as u64;
+
+        let first_half = first_half << 32;
+        let full = first_half + second_half;
+        full
+    }
+
     #[inline(always)]
     pub fn decode_opcode(instruction: Instruction) -> Instruction {
         instruction >> 26
@@ -352,5 +370,15 @@ mod instruction_builder_tests {
         let d_number = InstructionDecoder::decode_float32(instruction);
 
         assert_eq!(r_number, d_number)
+    }
+
+    #[test]
+    fn test_splitting_and_merging_u64() {
+        let number = 100000000000u64;
+
+        let (first, second) = InstructionDecoder::split_u64(number);
+        let merged = InstructionDecoder::merge_u32s(first, second);
+
+        assert_eq!(number, merged)
     }
 }

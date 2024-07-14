@@ -122,6 +122,7 @@ name = "nova"
 version = "0.4.0"
 dependencies = [
  "byteorder",
+ "chrono",
  "memuse",
  "nova_tw",
 ]

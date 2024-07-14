@@ -24,7 +24,7 @@ pub struct NativeFunction {
 #[derive(Debug, Clone, PartialEq, PartialOrd)]
 pub enum NovaObject {
     None,
-    Float32(f32),
+    Float64(f64),
     NovaFunction(NovaFunction),
     NativeFunction(NativeFunction),
     String(Box<String>),
@@ -80,7 +80,7 @@ impl Display for NovaObject {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
             NovaObject::None => write!(f, "None"),
-            NovaObject::Float32(float) => write!(f, "{}", float),
+            NovaObject::Float64(float) => write!(f, "{}", float),
             NovaObject::String(string) => write!(f, "{}", string),
             NovaObject::NovaFunction(nova_function) => {
                 write!(
@@ -105,7 +105,7 @@ impl Display for NovaObject {
 pub enum RegisterValueKind {
     None,
     /// Float32 value
-    Float32,
+    Float64,
     /// Bool
     Bool,
     /// Index of object in memory array
@@ -121,8 +121,8 @@ impl RegisterValueKind {
     }
 
     #[inline(always)]
-    pub fn is_float32(&self) -> bool {
-        matches!(self, Self::Float32)
+    pub fn is_float64(&self) -> bool {
+        matches!(self, Self::Float64)
     }
 
     #[inline(always)]
@@ -140,7 +140,7 @@ impl PartialEq for RegisterValueKind {
     fn eq(&self, other: &Self) -> bool {
         match (self, other) {
             (Self::None, Self::None) => true,
-            (Self::Float32, Self::Float32) => true,
+            (Self::Float64, Self::Float64) => true,
             (Self::Bool, Self::Bool) => true,
             (Self::MemAddress, Self::MemAddress) => true,
             (Self::ImmAddress, Self::ImmAddress) => true,
