@@ -1,0 +1,16 @@
+fn sqrt(value)
+    return value^(1/2)
+end
+
+fn vec_distance(x, y)
+    sqr_distance := x^2 + y^2
+    distance := sqrt(sqr_distance)
+    return distance
+end
+
+length := 10
+width := 5
+
+hypotenuse := vec_distance(length, width)
+
+println("Distance = ", hypotenuse)

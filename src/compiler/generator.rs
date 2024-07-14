@@ -147,7 +147,9 @@ impl ExpressionVisitor for BytecodeGenerator {
 
     fn visit_binary(&mut self, binary: &nova_tw::language::binary::Binary) -> Self::Output {
         self.evaluate(&binary.left);
+        self.check_call_and_load_return();
         self.evaluate(&binary.right);
+        self.check_call_and_load_return();
 
         let mut invert_condition = false;
 
@@ -204,6 +206,7 @@ impl ExpressionVisitor for BytecodeGenerator {
 
     fn visit_unary(&mut self, unary: &nova_tw::language::unary::Unary) -> Self::Output {
         self.evaluate(&unary.right);
+        self.check_call_and_load_return();
 
         let index = self.temp_stack.len() as Instruction - 1;
         match unary.operator.token_type {
@@ -414,10 +417,12 @@ impl StatementVisitor for BytecodeGenerator {
         self.execute(&if_statement.then_branch);
         let current = self.program.instructions.len() as Instruction - 1;
         let offset = current - jump_then_branch;
-        self.program.instructions[jump_then_branch as usize] =
-            InstructionBuilder::new_jump_instruction(offset + 2, true);
+        
+
+        let mut jump_correction = 0;
 
         if let Some(else_branch) = &if_statement.else_branch {
+            jump_correction = 2;
             let jump_else_branch =
                 self.add_instruction(InstructionBuilder::new_jump_instruction(1, true));
             self.execute(else_branch);
@@ -426,6 +431,9 @@ impl StatementVisitor for BytecodeGenerator {
             self.program.instructions[jump_else_branch as usize] =
                 InstructionBuilder::new_jump_instruction(offset + 1, true);
         }
+
+        self.program.instructions[jump_then_branch as usize] =
+            InstructionBuilder::new_jump_instruction(offset + jump_correction, true);
     }
 
     fn visit_while(&mut self, while_loop: &nova_tw::language::WhileLoop) -> Self::Output {
@@ -539,7 +547,7 @@ impl StatementVisitor for BytecodeGenerator {
         self.add_instruction(InstructionBuilder::new_deallocate_local(
             num_locals as Instruction,
         )); */
-        
+
         self.add_instruction(InstructionBuilder::new_return_none_instruction());
         self.scope -= 1;
         self.local_variable_count -= num_locals as u32;

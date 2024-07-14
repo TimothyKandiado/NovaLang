@@ -1,0 +1,16 @@
+fn fibonacci(value)
+    #println("current value = ", value)
+
+    if value <= 1
+        return 0
+    end
+
+    if value == 2
+        return 1
+    end 
+
+    return fibonacci(value - 1) + fibonacci(value - 2)
+end
+
+value := fibonacci(10)
+print("fibonacci = ", value)

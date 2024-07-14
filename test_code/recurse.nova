@@ -1,0 +1,10 @@
+fn recurse(value)
+    println(value)
+    if value <= 1
+        return
+    else
+        recurse(value - 1)
+    end
+end
+
+recurse(4)

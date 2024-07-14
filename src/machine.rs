@@ -276,17 +276,17 @@ impl VirtualMachine {
         self.frames.push(frame.clone());
         self.clear_registers();
 
-        self.increase_local_offset();
+        self.set_local_offset();
 
-        self.allocate_local_memory(num_locals);
-        self.registers[RegisterID::RMax as usize].value = num_locals;
+        self.allocate_local_variables(num_locals);
+        self.registers[RegisterID::RMax as usize] = Register::new(RegisterValueKind::MemAddress, num_locals);
 
         frame
     }
 
     #[inline(always)]
-    fn increase_local_offset(&mut self) {
-        self.registers[RegisterID::RLO as usize].value += (self.locals.len()) as Instruction;
+    fn set_local_offset(&mut self) {
+        self.registers[RegisterID::RLO as usize].value = (self.locals.len()) as Instruction;
     }
 
     #[inline(always)]
@@ -305,8 +305,6 @@ impl VirtualMachine {
 
             self.registers = frame.registers;
             self.registers[RegisterID::RRTN as usize] = return_value;
-
-            self.deallocate_local_variables(num_locals);
         } else {
             self.running = false;
         }
@@ -362,8 +360,18 @@ impl VirtualMachine {
                             InstructionDecoder::decode_source_register_1(instruction);
 
                         // copy arguments from old frame to new frame
-                        for index in argument_start..argument_start + argument_number {
+                        /* for index in argument_start..argument_start + argument_number {
                             self.registers[index as usize] = old_frame.registers[index as usize];
+                        } */
+
+                        let mut source_index = argument_start as usize;
+                        let source_end = (argument_start + argument_number) as usize;
+                        let mut destination_index = 0;
+
+                        while source_index < source_end {
+                            self.registers[destination_index] = old_frame.registers[source_index];
+                            destination_index += 1;
+                            source_index += 1;
                         }
 
                         self.registers[RegisterID::RPC as usize].value = address;
@@ -1013,6 +1021,7 @@ impl VirtualMachine {
         }
 
         self.emit_error_with_message(&format!("Invalid global identifier: {:?}", immutable));
+        self.clear_register(source)
     }
 
     #[inline(always)]
@@ -1048,7 +1057,7 @@ impl VirtualMachine {
     }
 
     #[inline(always)]
-    fn allocate_local_memory(&mut self, number_of_locals: Instruction) {
+    fn allocate_local_variables(&mut self, number_of_locals: Instruction) {
         let mut local_space = vec![Register::default(); number_of_locals as usize];
         self.locals.append(&mut local_space)
     }
@@ -1082,6 +1091,7 @@ impl VirtualMachine {
         let register = self.get_register(source);
         let local_offset = self.registers[RegisterID::RLO as usize].value;
         self.locals[(address + local_offset) as usize] = register;
+        self.clear_register(source);
     }
 
     #[inline(always)]
@@ -1092,6 +1102,11 @@ impl VirtualMachine {
         let local_offset = self.registers[RegisterID::RLO as usize].value;
         let register = self.locals[(address + local_offset) as usize];
         self.set_value_in_register(destination, register);
+    }
+
+    #[inline(always)]
+    fn clear_register(&mut self, register_id: Instruction) {
+        self.registers[register_id as usize] = Register::empty()
     }
 
     #[inline(always)]
