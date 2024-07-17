@@ -118,6 +118,47 @@ impl BytecodeGenerator {
         index as Instruction
     }
 
+    fn add_integer(&mut self, number: i64, register_index: Instruction) {
+        if number > i32::MAX as i64 {
+            self.add_instruction(InstructionBuilder::new().add_opcode(OpCode::LoadInt64).add_destination_register(register_index).build());
+            let number_bits = number as u64;
+            let (first, second) = InstructionDecoder::split_u64(number_bits);
+            self.add_instruction(first);
+            self.add_instruction(second);
+            return;
+        }
+
+        let number = number as i32;
+        self.add_instruction(InstructionBuilder::new().add_opcode(OpCode::LoadInt32).add_destination_register(register_index).build());
+        self.program.instructions.push(number as u32);
+    }
+
+    fn add_number(&mut self, number: f64, register_index: Instruction) {
+        // if number can be an integer
+        if number.fract() == 0.0 {
+            let number = number as i64;
+            self.add_integer(number, register_index);
+            return;
+        }
+        // check if number can be stored as a float32
+        if number >= f32::MAX as f64 {
+            self.add_instruction(InstructionBuilder::new().add_opcode(OpCode::LoadFloat64).add_destination_register(register_index).build());
+            let number_bits = number.to_bits();
+            let (first, second) = InstructionDecoder::split_u64(number_bits);
+            self.add_instruction(first);
+            self.add_instruction(second);
+            return;
+        } 
+
+        let number = number as f32;
+        self.program
+            .instructions
+            .push(InstructionBuilder::new_load_float32_instruction(
+                register_index,
+            ));
+        self.program.instructions.push(number.to_bits());
+    }
+
     /// check if previous instruction was a call and if true
     /// load the return value
     fn check_call_and_load_return(&mut self) {
@@ -250,21 +291,7 @@ impl ExpressionVisitor for BytecodeGenerator {
         let register_index = self.temp_stack.len() as Instruction;
         match object {
             Object::Number(number) => {
-                if number >= f32::MAX as f64 {
-                    self.add_instruction(InstructionBuilder::new().add_opcode(OpCode::LoadFloat64).add_destination_register(register_index).build());
-                    let number_bits = number.to_bits();
-                    let (first, second) = InstructionDecoder::split_u64(number_bits);
-                    self.add_instruction(first);
-                    self.add_instruction(second);
-                }
-
-                let number = number as f32;
-                self.program
-                    .instructions
-                    .push(InstructionBuilder::new_load_float32_instruction(
-                        register_index,
-                    ));
-                self.program.instructions.push(number.to_bits());
+                self.add_number(number, register_index);
             }
 
             Object::Bool(bool) => {

@@ -1,10 +1,11 @@
-use std::{collections::HashMap, fmt::Display};
+use std::fmt::Display;
 
 use crate::instruction::Instruction;
+use rustc_hash::FxHashMap;
 
 pub type ValueID = String;
 pub type BaseNumber = f32;
-pub type MappedMemory = HashMap<ValueID, Instruction>;
+pub type MappedMemory = FxHashMap<ValueID, Instruction>;
 
 #[derive(Debug, Clone, PartialEq, PartialOrd)]
 pub struct NovaFunction {
@@ -24,6 +25,7 @@ pub struct NativeFunction {
 #[derive(Debug, Clone, PartialEq, PartialOrd)]
 pub enum NovaObject {
     None,
+    Int64(i64),
     Float64(f64),
     NovaFunction(NovaFunction),
     NativeFunction(NativeFunction),
@@ -80,6 +82,7 @@ impl Display for NovaObject {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
             NovaObject::None => write!(f, "None"),
+            NovaObject::Int64(int) => write!(f, "{}", int),
             NovaObject::Float64(float) => write!(f, "{}", float),
             NovaObject::String(string) => write!(f, "{}", string),
             NovaObject::NovaFunction(nova_function) => {
@@ -103,8 +106,11 @@ impl Display for NovaObject {
 
 #[derive(Debug, Clone, Copy, PartialEq)]
 pub enum RegisterValueKind {
+    /// None value
     None,
-    /// Float32 value
+    /// Int64 valuel
+    Int64,
+    /// Float64 value
     Float64,
     /// Bool
     Bool,
@@ -123,6 +129,11 @@ impl RegisterValueKind {
     #[inline(always)]
     pub fn is_float64(&self) -> bool {
         matches!(self, Self::Float64)
+    }
+
+    #[inline(always)]
+    pub fn is_int64(&self) -> bool {
+        matches!(self, Self::Int64)
     }
 
     #[inline(always)]

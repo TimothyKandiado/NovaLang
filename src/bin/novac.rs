@@ -4,7 +4,7 @@ use nova::{
     bytecode::OpCode,
     compiler,
     debug::debug_instruction,
-    instruction::{Instruction, InstructionDecoder},
+    instruction::InstructionDecoder,
     program::Program,
 };
 
@@ -39,12 +39,21 @@ fn debug_code(program: &Program) {
     let mut index = 0;
 
     while index < program.instructions.len() {
-        let instruction_dbg = debug_instruction(&program.instructions, index as Instruction);
+        let instruction_dbg = debug_instruction(&program.instructions, index as u64);
         println!("[{}]: {}", index, instruction_dbg);
 
         let code = InstructionDecoder::decode_opcode(program.instructions[index]);
         if code == OpCode::LoadFloat32 as u32 {
             index += 1;
+        }
+        else if code == OpCode::LoadFloat64 as u32 {
+            index += 2;
+        }
+        else if code == OpCode::LoadInt32 as u32 {
+            index += 1;
+        }
+        else if code == OpCode::LoadInt64 as u32 {
+            index += 2;
         }
 
         index += 1;

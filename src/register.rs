@@ -59,6 +59,9 @@ impl Default for Register {
 impl Display for Register {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         let description = match self.kind {
+            RegisterValueKind::Int64 => {
+                format!("{:<10} : {:>10}", "Int64", self.value as i64)
+            }
             RegisterValueKind::Float64 => {
                 format!("{:<10} : {:>10}", "Float64", f64::from_bits(self.value))
             }

@@ -9,6 +9,10 @@ pub enum OpCode {
     LoadNil,
     /// Load Boolean values into a register
     LoadBool,
+    /// Load int32 values into a register
+    LoadInt32,
+    /// Load int64 values into a register
+    LoadInt64,
     /// Load float32 values into a register
     LoadFloat32,
     /// Load float64 values into the register

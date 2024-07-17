@@ -62,7 +62,7 @@ impl VirtualMachine {
             frames: vec![Frame::main()],
             locals: Vec::new(),
             globals: Vec::new(),
-            identifiers: MappedMemory::new(),
+            identifiers: MappedMemory::default(),
         }
     }
 
@@ -114,6 +114,8 @@ impl VirtualMachine {
     }
 
     pub fn start_vm(&mut self, offset: Instruction) -> u32 {
+        let number_of_instructions = self.instructions.len() as u64;
+
         self.running = true;
         let program_counter = Register {
             kind: RegisterValueKind::MemAddress,
@@ -122,7 +124,7 @@ impl VirtualMachine {
 
         self.registers[RegisterID::RPC as usize] = program_counter;
 
-        while self.running {
+        while self.running && self.registers[RegisterID::RPC as usize].value < number_of_instructions {
             #[cfg(feature = "debug")]
             self.debug();
 
@@ -195,6 +197,14 @@ impl VirtualMachine {
 
             x if x == OpCode::LoadFloat64 as u32 => {
                 self.load_float64_to_register(instruction);
+            }
+
+            x if x == OpCode::LoadInt32 as u32 => {
+                self.load_int32_to_register(instruction);
+            }
+
+            x if x == OpCode::LoadInt64 as u32 => {
+                self.load_int64_to_register(instruction);
             }
 
             x if x == OpCode::Move as u32 => {
@@ -423,6 +433,11 @@ impl VirtualMachine {
                         self.set_value_in_register(RegisterID::RRTN as Instruction, register);
                     }
 
+                    NovaObject::Int64(value) => {
+                        let register = Register::new(RegisterValueKind::Int64, value as u64);
+                        self.set_value_in_register(RegisterID::RRTN as Instruction, register);
+                    }
+
                     NovaObject::None => {
                         self.set_value_in_register(RegisterID::RRTN as Instruction, Register::empty());
                     }
@@ -473,6 +488,9 @@ impl VirtualMachine {
         let register = self.get_register(source);
 
         match register.kind {
+            RegisterValueKind::Int64 => {
+                print!("{}", register.value as i64)
+            }
             RegisterValueKind::Float64 => {
                 print!("{}", f64::from_bits(register.value))
             }
@@ -534,6 +552,48 @@ impl VirtualMachine {
             let value_2 = f64::from_bits(register_2.value);
 
             let sum = value_1 + value_2;
+            let sum = sum.to_bits();
+
+            let new_value = Register::new(register_1.kind, sum);
+            self.set_value_in_register(destination_register, new_value);
+            return;
+        }
+
+        if let (RegisterValueKind::Int64, RegisterValueKind::Int64) =
+            (register_1.kind, register_2.kind)
+        {
+            let value_1 = register_1.value as i64;
+            let value_2 = register_2.value as i64;
+
+            let sum = value_1 + value_2;
+            let sum = sum as u64;
+
+            let new_value = Register::new(register_1.kind, sum);
+            self.set_value_in_register(destination_register, new_value);
+            return;
+        }
+
+        if let (RegisterValueKind::Float64, RegisterValueKind::Int64) =
+            (register_1.kind, register_2.kind)
+        {
+            let value_1 = f64::from_bits(register_1.value);
+            let value_2 = register_2.value as i64;
+
+            let sum = value_1 + (value_2 as f64);
+            let sum = sum.to_bits();
+
+            let new_value = Register::new(register_1.kind, sum);
+            self.set_value_in_register(destination_register, new_value);
+            return;
+        }
+
+        if let (RegisterValueKind::Int64, RegisterValueKind::Float64) =
+            (register_1.kind, register_2.kind)
+        {
+            let value_1 = register_1.value as i64;
+            let value_2 = f64::from_bits(register_2.value);
+
+            let sum = value_1 as f64 + value_2;
             let sum = sum.to_bits();
 
             let new_value = Register::new(register_1.kind, sum);
@@ -658,6 +718,20 @@ impl VirtualMachine {
             return;
         }
 
+        if let (RegisterValueKind::Int64, RegisterValueKind::Int64) =
+            (register_1.kind, register_2.kind)
+        {
+            let value_1 = register_1.value as i64;
+            let value_2 = register_2.value as i64;
+
+            let result = value_1 - value_2;
+            let result = result as u64;
+
+            let new_value = Register::new(register_1.kind, result);
+            self.set_value_in_register(destination_register, new_value);
+            return;
+        }
+
         self.emit_error_with_message(&format!(
             "cannot subtract {:?} by {:?}",
             register_1.kind, register_2.kind
@@ -687,6 +761,20 @@ impl VirtualMachine {
             return;
         }
 
+        if let (RegisterValueKind::Int64, RegisterValueKind::Int64) =
+            (register_1.kind, register_2.kind)
+        {
+            let value_1 = register_1.value as i64;
+            let value_2 = register_2.value as i64;
+
+            let result = value_1 * value_2;
+            let result = result as u64;
+
+            let new_value = Register::new(register_1.kind, result);
+            self.set_value_in_register(destination_register, new_value);
+            return;
+        }
+
         self.emit_error_with_message(&format!(
             "cannot multiply {:?} by {:?}",
             register_1.kind, register_2.kind
@@ -712,6 +800,20 @@ impl VirtualMachine {
             let div = div.to_bits();
 
             let new_value = Register::new(register_1.kind, div);
+            self.set_value_in_register(destination_register, new_value);
+            return;
+        }
+
+        if let (RegisterValueKind::Int64, RegisterValueKind::Int64) =
+            (register_1.kind, register_2.kind)
+        {
+            let value_1 = register_1.value as i64;
+            let value_2 = register_2.value as i64;
+
+            let result = value_1 as f64 / value_2 as f64;
+            let result = result.to_bits();
+
+            let new_value = Register::new(RegisterValueKind::Float64, result);
             self.set_value_in_register(destination_register, new_value);
             return;
         }
@@ -866,6 +968,7 @@ impl VirtualMachine {
     fn is_truthy(&self, register: Register) -> bool {
         match register.kind {
             RegisterValueKind::None => false,
+            RegisterValueKind::Int64 => true,
             RegisterValueKind::Float64 => true,
             RegisterValueKind::Bool => register.value == 1,
             RegisterValueKind::MemAddress => true,
@@ -903,6 +1006,7 @@ impl VirtualMachine {
         let register = self.get_register(register_address);
 
         let value = match register.kind {
+            RegisterValueKind::Int64 => NovaObject::Int64(register.value as i64),
             RegisterValueKind::Float64 => NovaObject::Float64(f64::from_bits(register.value)),
             RegisterValueKind::None => NovaObject::None,
             RegisterValueKind::MemAddress => self.load_object_from_memory(register.value).clone(),
@@ -931,7 +1035,7 @@ impl VirtualMachine {
 
         let number = self.get_next_instruction();
         let number = f32::from_bits(number);
-        self.load_number_to_register(destination_register, number as f64);
+        self.load_f64_to_register(destination_register, number as f64);
     }
 
     #[inline(always)]
@@ -942,7 +1046,27 @@ impl VirtualMachine {
         let second_half = self.get_next_instruction();
         let number = InstructionDecoder::merge_u32s(first_half, second_half);
         let number = f64::from_bits(number);
-        self.load_number_to_register(destination_register, number);
+        self.load_f64_to_register(destination_register, number);
+    }
+
+    #[inline(always)]
+    fn load_int32_to_register(&mut self, instruction: Instruction) {
+        let destination_register = InstructionDecoder::decode_destination_register(instruction);
+
+        let number = self.get_next_instruction();
+        let number = number as i32;
+        self.load_i64_to_register(destination_register, number as i64);
+    }
+
+    #[inline(always)]
+    fn load_int64_to_register(&mut self, instruction: Instruction) {
+        let destination_register = InstructionDecoder::decode_destination_register(instruction);
+
+        let first_half = self.get_next_instruction();
+        let second_half = self.get_next_instruction();
+        let number = InstructionDecoder::merge_u32s(first_half, second_half);
+        let number = number as i64;
+        self.load_i64_to_register(destination_register, number);
     }
 
     #[inline(always)]
@@ -959,9 +1083,16 @@ impl VirtualMachine {
     }
 
     #[inline(always)]
-    fn load_number_to_register(&mut self, destination: Instruction, number: f64) {
+    fn load_f64_to_register(&mut self, destination: Instruction, number: f64) {
         let number = number.to_bits();
         let register = Register::new(RegisterValueKind::Float64, number);
+        self.set_value_in_register(destination, register);
+    }
+
+    #[inline(always)]
+    fn load_i64_to_register(&mut self, destination: Instruction, number: i64) {
+        let number = number as u64;
+        let register = Register::new(RegisterValueKind::Int64, number);
         self.set_value_in_register(destination, register);
     }
 
@@ -1017,24 +1148,40 @@ impl VirtualMachine {
     #[inline(always)]
     fn get_next_instruction(&mut self) -> Instruction {
         let instruction = self.peek_next_instruction();
-        self.registers[RegisterID::RPC as usize].value += 1;
+        unsafe {
+            self.registers.get_unchecked_mut(RegisterID::RPC as usize).value += 1;
+        }
+        
         instruction
     }
 
     #[inline(always)]
     fn get_register(&self, register_id: Instruction) -> Register {
-        self.registers[register_id as usize]
+        //self.registers[register_id as usize]
+        unsafe {
+            return *self.registers.get_unchecked(register_id as usize);
+        }
+        
     }
 
     #[inline(always)]
     fn set_value_in_register(&mut self, register_id: Instruction, value: Register) {
-        self.registers[register_id as usize] = value
+        //self.registers[register_id as usize] = value
+        unsafe {
+            let register = self.registers.get_unchecked_mut(register_id as usize);
+            register.kind = value.kind;
+            register.value = value.value;
+        }
     }
 
     /// load an object from memory given the memory location
     #[inline(always)]
     fn load_object_from_memory(&self, address: u64) -> &NovaObject {
-        &self.memory[address as usize]
+        unsafe {
+            let object = self.memory.get_unchecked(address as usize);
+            return object;
+        }
+        // &self.memory[address as usize]
     }
 
 
@@ -1211,6 +1358,24 @@ impl VirtualMachine {
                     return first < second;
                 }
 
+                if first.kind.is_int64() && second.kind.is_int64() {
+                    let first = first.value as i64;
+                    let second = second.value as i64;
+                    return first < second;
+                }
+
+                if first.kind.is_int64() && second.kind.is_float64() {
+                    let first = first.value as i64;
+                    let second = f64::from_bits(second.value);
+                    return (first as f64) < second;
+                }
+
+                if first.kind.is_float64() && second.kind.is_int64() {
+                    let first = f64::from_bits(first.value);
+                    let second = second.value as i64;
+                    return first < (second as f64);
+                }
+
                 if first.kind.is_mem_address() && second.kind.is_mem_address() {
                     let first = self.load_object_from_memory(first.value);
                     let second = self.load_object_from_memory(second.value);
@@ -1252,6 +1417,24 @@ impl VirtualMachine {
                     return first <= second;
                 }
 
+                if first.kind.is_int64() && second.kind.is_int64() {
+                    let first = first.value as i64;
+                    let second = second.value as i64;
+                    return first <= second;
+                }
+
+                if first.kind.is_int64() && second.kind.is_float64() {
+                    let first = first.value as i64;
+                    let second = f64::from_bits(second.value);
+                    return (first as f64) <= second;
+                }
+
+                if first.kind.is_float64() && second.kind.is_int64() {
+                    let first = f64::from_bits(first.value);
+                    let second = second.value as i64;
+                    return first <= (second as f64);
+                }
+
                 if first.kind.is_mem_address() && second.kind.is_mem_address() {
                     let first = self.load_object_from_memory(first.value);
                     let second = self.load_object_from_memory(second.value);
@@ -1280,6 +1463,19 @@ impl VirtualMachine {
             }
 
             OpCode::Equal => {
+
+                if first.kind.is_int64() && second.kind.is_float64() {
+                    let first = first.value as i64;
+                    let second = f64::from_bits(second.value);
+                    return (first as f64) == second;
+                }
+
+                if first.kind.is_float64() && second.kind.is_int64() {
+                    let first = f64::from_bits(first.value);
+                    let second = second.value as i64;
+                    return first == (second as f64);
+                }
+                
                 if first.kind != second.kind {
                     return false;
                 }
@@ -1289,6 +1485,10 @@ impl VirtualMachine {
                 }
 
                 if first.kind.is_float64() && second.kind.is_float64() {
+                    return first.value == second.value;
+                }
+
+                if first.kind.is_int64() && second.kind.is_int64() {
                     return first.value == second.value;
                 }
 
@@ -1332,7 +1532,10 @@ impl VirtualMachine {
 
     #[inline(always)]
     fn peek_next_instruction(&self) -> Instruction {
-        self.instructions[self.registers[RegisterID::RPC as usize].value as usize]
+        let instruction_pointer = self.registers[RegisterID::RPC as usize].value as usize;
+        unsafe {
+            return *self.instructions.get_unchecked(instruction_pointer);
+        }
     }
 
     #[cfg(feature = "debug")]

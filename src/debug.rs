@@ -5,7 +5,7 @@ use crate::{
 
 pub fn debug_instruction(
     instructions: &[Instruction],
-    instruction_pointer: Instruction,
+    instruction_pointer: u64,
 ) -> String {
     let instruction = instructions[instruction_pointer as usize];
 
@@ -38,7 +38,32 @@ pub fn debug_instruction(
             let destination_register = InstructionDecoder::decode_destination_register(instruction);
             let number = instructions[instruction_pointer as usize + 1];
             let number = f32::from_bits(number);
-            load_number_to_register(destination_register, number)
+            load_float32_to_register(destination_register, number)
+        }
+
+        x if x == OpCode::LoadFloat64 as u32 => {
+            let destination_register = InstructionDecoder::decode_destination_register(instruction);
+            let first_half = instructions[instruction_pointer as usize + 1];
+            let second_half = instructions[instruction_pointer as usize + 2];
+            let number = InstructionDecoder::merge_u32s(first_half, second_half);
+            let number = f64::from_bits(number);
+            load_float64_to_register(destination_register, number)
+        }
+
+        x if x == OpCode::LoadInt32 as u32 => {
+            let destination_register = InstructionDecoder::decode_destination_register(instruction);
+            let number = instructions[instruction_pointer as usize + 1];
+            let number = number as i32;
+            format!("LOADINT32 {} {}", destination_register, number)
+        }
+
+        x if x == OpCode::LoadInt64 as u32 => {
+            let destination_register = InstructionDecoder::decode_destination_register(instruction);
+            let first_half = instructions[instruction_pointer as usize + 1];
+            let second_half = instructions[instruction_pointer as usize + 2];
+            let number = InstructionDecoder::merge_u32s(first_half, second_half);
+            let number = number as i64;
+            format!("LOADINT64 {} {}", destination_register, number)
         }
 
         x if x == OpCode::Move as u32 => move_register(instruction),
@@ -234,8 +259,12 @@ fn load_bool_to_register(instruction: Instruction) -> String {
     )
 }
 
-fn load_number_to_register(destination: Instruction, number: f32) -> String {
-    format!("LOADFLOAT {} {}", destination, number)
+fn load_float32_to_register(destination: Instruction, number: f32) -> String {
+    format!("LOADFLOAT32 {} {}", destination, number)
+}
+
+fn load_float64_to_register(destination: Instruction, number: f64) -> String {
+    format!("LOADFLOAT64 {} {}", destination, number)
 }
 
 fn move_register(instruction: Instruction) -> String {

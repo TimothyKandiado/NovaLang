@@ -66,7 +66,7 @@ pub fn time_native() -> NativeFunction {
                         #[cfg(feature = "debug")]
                         println!("epoch = {}", epoch);
 
-                        Ok(NovaObject::Float64(epoch as f64))
+                        Ok(NovaObject::Int64(epoch as i64))
                     }
 
                     "micro" => {
@@ -74,7 +74,7 @@ pub fn time_native() -> NativeFunction {
                         #[cfg(feature = "debug")]
                         println!("epoch = {}", epoch);
 
-                        Ok(NovaObject::Float64(epoch as f64))
+                        Ok(NovaObject::Int64(epoch as i64))
                     }
 
                     "sec" => {
@@ -82,7 +82,7 @@ pub fn time_native() -> NativeFunction {
                         #[cfg(feature = "debug")]
                         println!("epoch = {}", epoch);
 
-                        Ok(NovaObject::Float64(epoch as f64))
+                        Ok(NovaObject::Int64(epoch as i64))
                     }
 
                     "nano" => {
@@ -90,7 +90,7 @@ pub fn time_native() -> NativeFunction {
                         #[cfg(feature = "debug")]
                         println!("epoch = {}", epoch);
 
-                        Ok(NovaObject::Float64(epoch as f64))
+                        Ok(NovaObject::Int64(epoch as i64))
                     }
 
                     _ => {
