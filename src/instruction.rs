@@ -255,7 +255,7 @@ impl InstructionBuilder {
     }
 }
 
-pub mod InstructionDecoder {
+pub mod instruction_decoder {
     use super::Instruction;
 
     #[inline(always)]
@@ -315,7 +315,7 @@ pub mod InstructionDecoder {
 
 #[cfg(test)]
 mod instruction_builder_tests {
-    use super::{Instruction, InstructionBuilder, InstructionDecoder};
+    use super::{Instruction, InstructionBuilder, instruction_decoder};
     use crate::bytecode::OpCode;
 
     #[test]
@@ -324,7 +324,7 @@ mod instruction_builder_tests {
         let code = OpCode::Break;
         let r_code = code as Instruction;
         let instruction = InstructionBuilder::new().add_opcode(code).build();
-        let d_code = InstructionDecoder::decode_opcode(instruction);
+        let d_code = instruction_decoder::decode_opcode(instruction);
 
         assert_eq!(r_code, d_code);
     }
@@ -341,9 +341,9 @@ mod instruction_builder_tests {
             .add_source_register_2(r_source2)
             .build();
 
-        let d_destination = InstructionDecoder::decode_destination_register(instruction);
-        let d_source1 = InstructionDecoder::decode_source_register_1(instruction);
-        let d_source2 = InstructionDecoder::decode_source_register_2(instruction);
+        let d_destination = instruction_decoder::decode_destination_register(instruction);
+        let d_source1 = instruction_decoder::decode_source_register_1(instruction);
+        let d_source2 = instruction_decoder::decode_source_register_2(instruction);
 
         assert_eq!(r_destination, d_destination);
         assert_eq!(r_source1, d_source1);
@@ -358,7 +358,7 @@ mod instruction_builder_tests {
             .add_address_small(r_immutable)
             .build();
 
-        let d_immutable = InstructionDecoder::decode_immutable_address_small(instruction);
+        let d_immutable = instruction_decoder::decode_immutable_address_small(instruction);
 
         assert_eq!(r_immutable, d_immutable);
     }
@@ -368,7 +368,7 @@ mod instruction_builder_tests {
         let r_number = 50.0f32;
         let bits = r_number.to_bits();
         let instruction = bits;
-        let d_number = InstructionDecoder::decode_float32(instruction);
+        let d_number = instruction_decoder::decode_float32(instruction);
 
         assert_eq!(r_number, d_number)
     }
@@ -377,8 +377,8 @@ mod instruction_builder_tests {
     fn test_splitting_and_merging_u64() {
         let number = 100000000000u64;
 
-        let (first, second) = InstructionDecoder::split_u64(number);
-        let merged = InstructionDecoder::merge_u32s(first, second);
+        let (first, second) = instruction_decoder::split_u64(number);
+        let merged = instruction_decoder::merge_u32s(first, second);
 
         assert_eq!(number, merged)
     }

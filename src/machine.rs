@@ -1,7 +1,7 @@
 use crate::{
     bytecode::OpCode,
     frame::Frame,
-    instruction::{Instruction, InstructionBuilder, InstructionDecoder},
+    instruction::{Instruction, InstructionBuilder, instruction_decoder},
     object::{MappedMemory, NativeFunction, NovaCallable, NovaObject, RegisterValueKind},
     program::Program,
     register::{Register, RegisterID},
@@ -14,14 +14,14 @@ const PC_START: Instruction = 0x0;
 
 #[inline(always)]
 fn offset_immutable_address(instruction: Instruction, offset: Instruction) -> Instruction {
-    let opcode = InstructionDecoder::decode_opcode(instruction);
+    let opcode = instruction_decoder::decode_opcode(instruction);
 
     if opcode == OpCode::LoadK.to_u32()
         || opcode == OpCode::DefineGlobalIndirect.to_u32()
         || opcode == OpCode::LoadGlobalIndirect.to_u32()
         || opcode == OpCode::StoreGlobalIndirect.to_u32()
     {
-        let old_address = InstructionDecoder::decode_immutable_address_small(instruction);
+        let old_address = instruction_decoder::decode_immutable_address_small(instruction);
         let new_address = old_address + offset;
         return InstructionBuilder::from(instruction)
             .clear_address_small()
@@ -144,7 +144,7 @@ impl VirtualMachine {
 
     #[inline(always)]
     fn execute_instruction(&mut self, instruction: Instruction) {
-        let opcode = InstructionDecoder::decode_opcode(instruction);
+        let opcode = instruction_decoder::decode_opcode(instruction);
 
         match opcode {
             x if x == OpCode::NoInstruction as u32 => {
@@ -226,8 +226,8 @@ impl VirtualMachine {
             }
 
             x if x == OpCode::LoadGlobal as u32 => {
-                let destination = InstructionDecoder::decode_destination_register(instruction);
-                let address = InstructionDecoder::decode_immutable_address_small(instruction);
+                let destination = instruction_decoder::decode_destination_register(instruction);
+                let address = instruction_decoder::decode_immutable_address_small(instruction);
 
                 self.load_global_value(destination, address);
             }
@@ -297,8 +297,8 @@ impl VirtualMachine {
     }
     #[inline(always)]
     fn move_register(&mut self, instruction: Instruction) {
-        let destination = InstructionDecoder::decode_destination_register(instruction);
-        let source = InstructionDecoder::decode_source_register_1(instruction);
+        let destination = instruction_decoder::decode_destination_register(instruction);
+        let source = instruction_decoder::decode_source_register_1(instruction);
 
         let value = self.get_register(source);
         self.set_value_in_register(destination, value);
@@ -359,9 +359,9 @@ impl VirtualMachine {
 
     #[inline(always)]
     fn invoke(&mut self, instruction: Instruction) {
-        let invoke_register = InstructionDecoder::decode_source_register_2(instruction);
-        let argument_start = InstructionDecoder::decode_destination_register(instruction);
-        let argument_number = InstructionDecoder::decode_source_register_1(instruction);
+        let invoke_register = instruction_decoder::decode_source_register_2(instruction);
+        let argument_start = instruction_decoder::decode_destination_register(instruction);
+        let argument_number = instruction_decoder::decode_source_register_1(instruction);
 
         let register = self.get_register(invoke_register);
 
@@ -465,7 +465,7 @@ impl VirtualMachine {
 
     #[inline(always)]
     fn return_val(&mut self, instruction: Instruction) {
-        let value_source = InstructionDecoder::decode_source_register_1(instruction);
+        let value_source = instruction_decoder::decode_source_register_1(instruction);
         let value_register = self.get_register(value_source);
 
         self.set_value_in_register(RegisterID::RRTN as Instruction, value_register);
@@ -475,7 +475,7 @@ impl VirtualMachine {
 
     #[inline(always)]
     fn load_return(&mut self, instruction: Instruction) {
-        let destination = InstructionDecoder::decode_destination_register(instruction);
+        let destination = instruction_decoder::decode_destination_register(instruction);
 
         let return_register = self.registers[RegisterID::RRTN as usize];
         self.set_value_in_register(destination, return_register);
@@ -483,8 +483,8 @@ impl VirtualMachine {
 
     #[inline(always)]
     fn print(&self, instruction: Instruction) {
-        let source = InstructionDecoder::decode_source_register_1(instruction);
-        let newline = InstructionDecoder::decode_destination_register(instruction);
+        let source = instruction_decoder::decode_source_register_1(instruction);
+        let newline = instruction_decoder::decode_destination_register(instruction);
 
         let register = self.get_register(source);
 
@@ -520,7 +520,7 @@ impl VirtualMachine {
     #[inline(always)]
     fn negate(&mut self, instruction: Instruction) {
         //let destination = InstructionDecoder::decode_destination_register(instruction);
-        let source = InstructionDecoder::decode_source_register_1(instruction);
+        let source = instruction_decoder::decode_source_register_1(instruction);
         let destination = source; // negate value in place
 
         let register = self.get_register(source);
@@ -539,9 +539,9 @@ impl VirtualMachine {
 
     #[inline(always)]
     fn add(&mut self, instruction: Instruction) {
-        let destination_register = InstructionDecoder::decode_destination_register(instruction);
-        let source_register_1 = InstructionDecoder::decode_source_register_1(instruction);
-        let source_register_2 = InstructionDecoder::decode_source_register_2(instruction);
+        let destination_register = instruction_decoder::decode_destination_register(instruction);
+        let source_register_1 = instruction_decoder::decode_source_register_1(instruction);
+        let source_register_2 = instruction_decoder::decode_source_register_2(instruction);
 
         let register_1 = self.get_register(source_register_1);
         let register_2 = self.get_register(source_register_2);
@@ -698,9 +698,9 @@ impl VirtualMachine {
 
     #[inline(always)]
     fn sub(&mut self, instruction: Instruction) {
-        let destination_register = InstructionDecoder::decode_destination_register(instruction);
-        let source_register_1 = InstructionDecoder::decode_source_register_1(instruction);
-        let source_register_2 = InstructionDecoder::decode_source_register_2(instruction);
+        let destination_register = instruction_decoder::decode_destination_register(instruction);
+        let source_register_1 = instruction_decoder::decode_source_register_1(instruction);
+        let source_register_2 = instruction_decoder::decode_source_register_2(instruction);
 
         let register_1 = self.get_register(source_register_1);
         let register_2 = self.get_register(source_register_2);
@@ -741,9 +741,9 @@ impl VirtualMachine {
 
     #[inline(always)]
     fn mul(&mut self, instruction: Instruction) {
-        let destination_register = InstructionDecoder::decode_destination_register(instruction);
-        let source_register_1 = InstructionDecoder::decode_source_register_1(instruction);
-        let source_register_2 = InstructionDecoder::decode_source_register_2(instruction);
+        let destination_register = instruction_decoder::decode_destination_register(instruction);
+        let source_register_1 = instruction_decoder::decode_source_register_1(instruction);
+        let source_register_2 = instruction_decoder::decode_source_register_2(instruction);
 
         let register_1 = self.get_register(source_register_1);
         let register_2 = self.get_register(source_register_2);
@@ -784,9 +784,9 @@ impl VirtualMachine {
 
     #[inline(always)]
     fn div(&mut self, instruction: Instruction) {
-        let destination_register = InstructionDecoder::decode_destination_register(instruction);
-        let source_register_1 = InstructionDecoder::decode_source_register_1(instruction);
-        let source_register_2 = InstructionDecoder::decode_source_register_2(instruction);
+        let destination_register = instruction_decoder::decode_destination_register(instruction);
+        let source_register_1 = instruction_decoder::decode_source_register_1(instruction);
+        let source_register_2 = instruction_decoder::decode_source_register_2(instruction);
 
         let register_1 = self.get_register(source_register_1);
         let register_2 = self.get_register(source_register_2);
@@ -827,9 +827,9 @@ impl VirtualMachine {
 
     #[inline(always)]
     fn pow(&mut self, instruction: Instruction) {
-        let destination_register = InstructionDecoder::decode_destination_register(instruction);
-        let source_register_1 = InstructionDecoder::decode_source_register_1(instruction);
-        let source_register_2 = InstructionDecoder::decode_source_register_2(instruction);
+        let destination_register = instruction_decoder::decode_destination_register(instruction);
+        let source_register_1 = instruction_decoder::decode_source_register_1(instruction);
+        let source_register_2 = instruction_decoder::decode_source_register_2(instruction);
 
         let register_1 = self.get_register(source_register_1);
         let register_2 = self.get_register(source_register_2);
@@ -856,9 +856,9 @@ impl VirtualMachine {
 
     #[inline(always)]
     fn modulus(&mut self, instruction: Instruction) {
-        let destination_register = InstructionDecoder::decode_destination_register(instruction);
-        let source_register_1 = InstructionDecoder::decode_source_register_1(instruction);
-        let source_register_2 = InstructionDecoder::decode_source_register_2(instruction);
+        let destination_register = instruction_decoder::decode_destination_register(instruction);
+        let source_register_1 = instruction_decoder::decode_source_register_1(instruction);
+        let source_register_2 = instruction_decoder::decode_source_register_2(instruction);
 
         let register_1 = self.get_register(source_register_1);
         let register_2 = self.get_register(source_register_2);
@@ -886,10 +886,10 @@ impl VirtualMachine {
     #[inline(always)]
     /// compares if first register is less than second register
     fn less(&mut self, instruction: Instruction) {
-        let source1 = InstructionDecoder::decode_source_register_1(instruction);
-        let source2 = InstructionDecoder::decode_source_register_2(instruction);
+        let source1 = instruction_decoder::decode_source_register_1(instruction);
+        let source2 = instruction_decoder::decode_source_register_2(instruction);
 
-        let destination = InstructionDecoder::decode_destination_register(instruction);
+        let destination = instruction_decoder::decode_destination_register(instruction);
 
         let register1 = self.get_register(source1);
         let register2 = self.get_register(source2);
@@ -910,10 +910,10 @@ impl VirtualMachine {
     #[inline(always)]
     /// compares if first register is less than or equal to second register
     fn less_or_equal(&mut self, instruction: Instruction) {
-        let source1 = InstructionDecoder::decode_source_register_1(instruction);
-        let source2 = InstructionDecoder::decode_source_register_2(instruction);
+        let source1 = instruction_decoder::decode_source_register_1(instruction);
+        let source2 = instruction_decoder::decode_source_register_2(instruction);
 
-        let destination = InstructionDecoder::decode_destination_register(instruction);
+        let destination = instruction_decoder::decode_destination_register(instruction);
 
         let register1 = self.get_register(source1);
         let register2 = self.get_register(source2);
@@ -934,10 +934,10 @@ impl VirtualMachine {
     #[inline(always)]
     /// compares if first register is less than or equal to second register
     fn equal(&mut self, instruction: Instruction) {
-        let source1 = InstructionDecoder::decode_source_register_1(instruction);
-        let source2 = InstructionDecoder::decode_source_register_2(instruction);
+        let source1 = instruction_decoder::decode_source_register_1(instruction);
+        let source2 = instruction_decoder::decode_source_register_2(instruction);
 
-        let destination = InstructionDecoder::decode_destination_register(instruction);
+        let destination = instruction_decoder::decode_destination_register(instruction);
 
         let register1 = self.get_register(source1);
         let register2 = self.get_register(source2);
@@ -957,7 +957,7 @@ impl VirtualMachine {
 
     #[inline(always)]
     fn not(&mut self, instruction: Instruction) {
-        let source = InstructionDecoder::decode_source_register_1(instruction);
+        let source = instruction_decoder::decode_source_register_1(instruction);
         let mut register = self.get_register(source);
 
         let is_true = self.is_truthy(register);
@@ -979,7 +979,7 @@ impl VirtualMachine {
 
     #[inline(always)]
     fn jump_if_false(&mut self, instruction: Instruction) {
-        let source = InstructionDecoder::decode_source_register_1(instruction);
+        let source = instruction_decoder::decode_source_register_1(instruction);
 
         let register = self.get_register(source);
         let truthy = self.is_truthy(register);
@@ -993,8 +993,8 @@ impl VirtualMachine {
 
     #[inline(always)]
     fn jump(&mut self, instruction: Instruction) {
-        let offset = InstructionDecoder::decode_immutable_address_small(instruction);
-        let direction = InstructionDecoder::decode_destination_register(instruction);
+        let offset = instruction_decoder::decode_immutable_address_small(instruction);
+        let direction = instruction_decoder::decode_destination_register(instruction);
         if direction == 0 {
             self.registers[RegisterID::RPC as usize].value -= offset as u64 + 1; // backward jump, add one since the intepreter will automatically add 1 after instruction
         } else {
@@ -1020,8 +1020,8 @@ impl VirtualMachine {
 
     #[inline(always)]
     fn load_constant_to_register(&mut self, instruction: Instruction) {
-        let destination_register = InstructionDecoder::decode_destination_register(instruction);
-        let immutable_address = InstructionDecoder::decode_immutable_address_small(instruction);
+        let destination_register = instruction_decoder::decode_destination_register(instruction);
+        let immutable_address = instruction_decoder::decode_immutable_address_small(instruction);
 
         let register = Register {
             kind: RegisterValueKind::ImmAddress,
@@ -1032,7 +1032,7 @@ impl VirtualMachine {
 
     #[inline(always)]
     fn load_float32_to_register(&mut self, instruction: Instruction) {
-        let destination_register = InstructionDecoder::decode_destination_register(instruction);
+        let destination_register = instruction_decoder::decode_destination_register(instruction);
 
         let number = self.get_next_instruction();
         let number = f32::from_bits(number);
@@ -1041,18 +1041,18 @@ impl VirtualMachine {
 
     #[inline(always)]
     fn load_float64_to_register(&mut self, instruction: Instruction) {
-        let destination_register = InstructionDecoder::decode_destination_register(instruction);
+        let destination_register = instruction_decoder::decode_destination_register(instruction);
 
         let first_half = self.get_next_instruction();
         let second_half = self.get_next_instruction();
-        let number = InstructionDecoder::merge_u32s(first_half, second_half);
+        let number = instruction_decoder::merge_u32s(first_half, second_half);
         let number = f64::from_bits(number);
         self.load_f64_to_register(destination_register, number);
     }
 
     #[inline(always)]
     fn load_int32_to_register(&mut self, instruction: Instruction) {
-        let destination_register = InstructionDecoder::decode_destination_register(instruction);
+        let destination_register = instruction_decoder::decode_destination_register(instruction);
 
         let number = self.get_next_instruction();
         let number = number as i32;
@@ -1061,18 +1061,18 @@ impl VirtualMachine {
 
     #[inline(always)]
     fn load_int64_to_register(&mut self, instruction: Instruction) {
-        let destination_register = InstructionDecoder::decode_destination_register(instruction);
+        let destination_register = instruction_decoder::decode_destination_register(instruction);
 
         let first_half = self.get_next_instruction();
         let second_half = self.get_next_instruction();
-        let number = InstructionDecoder::merge_u32s(first_half, second_half);
+        let number = instruction_decoder::merge_u32s(first_half, second_half);
         let number = number as i64;
         self.load_i64_to_register(destination_register, number);
     }
 
     #[inline(always)]
     fn load_nil_to_register(&mut self, instruction: Instruction) {
-        let destination = InstructionDecoder::decode_destination_register(instruction);
+        let destination = instruction_decoder::decode_destination_register(instruction);
         let register = Register::new(RegisterValueKind::None, 0);
         self.set_value_in_register(destination, register);
     }
@@ -1099,8 +1099,8 @@ impl VirtualMachine {
 
     #[inline(always)]
     fn load_bool_to_register(&mut self, instruction: Instruction) {
-        let destination = InstructionDecoder::decode_destination_register(instruction);
-        let boolean = InstructionDecoder::decode_immutable_address_small(instruction);
+        let destination = instruction_decoder::decode_destination_register(instruction);
+        let boolean = instruction_decoder::decode_immutable_address_small(instruction);
         let register = Register::new(RegisterValueKind::Float64, boolean as u64);
         self.set_value_in_register(destination, register);
     }
@@ -1191,7 +1191,7 @@ impl VirtualMachine {
     /// defines an empty global variable in the virtual machine
     #[inline(always)]
     fn define_global_indirect(&mut self, instruction: Instruction) {
-        let index = InstructionDecoder::decode_immutable_address_small(instruction);
+        let index = instruction_decoder::decode_immutable_address_small(instruction);
         let immutable = self.immutables[index as usize].clone();
 
         if let NovaObject::String(name) = immutable {
@@ -1235,8 +1235,8 @@ impl VirtualMachine {
     /// store a value in a global location by first looking up name in the immutables array
     #[inline(always)]
     fn store_global_indirect(&mut self, instruction: Instruction) {
-        let source = InstructionDecoder::decode_source_register_1(instruction);
-        let index = InstructionDecoder::decode_immutable_address_small(instruction);
+        let source = instruction_decoder::decode_source_register_1(instruction);
+        let index = instruction_decoder::decode_immutable_address_small(instruction);
 
         let immutable = self.immutables[index as usize].clone();
 
@@ -1263,8 +1263,8 @@ impl VirtualMachine {
     /// load a value from a global location into a register by first looking up its name in the immutables array
     #[inline(always)]
     fn load_global_indirect(&mut self, instruction: Instruction) {
-        let destination = InstructionDecoder::decode_destination_register(instruction);
-        let index = InstructionDecoder::decode_immutable_address_small(instruction);
+        let destination = instruction_decoder::decode_destination_register(instruction);
+        let index = instruction_decoder::decode_immutable_address_small(instruction);
 
         let immutable = self.immutables[index as usize].clone();
 
@@ -1287,7 +1287,7 @@ impl VirtualMachine {
     #[inline(always)]
     fn allocate_locals(&mut self, instruction: Instruction) {
         // number of variables
-        let number = InstructionDecoder::decode_immutable_address_small(instruction);
+        let number = instruction_decoder::decode_immutable_address_small(instruction);
         let mut local_space = vec![Register::default(); number as usize];
 
         self.locals.append(&mut local_space)
@@ -1302,7 +1302,7 @@ impl VirtualMachine {
     #[inline(always)]
     fn deallocate_locals(&mut self, instruction: Instruction) {
         // number of variables
-        let mut number = InstructionDecoder::decode_immutable_address_small(instruction);
+        let mut number = instruction_decoder::decode_immutable_address_small(instruction);
 
         while number > 0 {
             number -= 1;
@@ -1322,8 +1322,8 @@ impl VirtualMachine {
 
     #[inline(always)]
     fn store_local(&mut self, instruction: Instruction) {
-        let source = InstructionDecoder::decode_source_register_1(instruction);
-        let address = InstructionDecoder::decode_immutable_address_small(instruction);
+        let source = instruction_decoder::decode_source_register_1(instruction);
+        let address = instruction_decoder::decode_immutable_address_small(instruction);
 
         let register = self.get_register(source);
         let local_offset = self.registers[RegisterID::RLO as usize].value;
@@ -1333,8 +1333,8 @@ impl VirtualMachine {
 
     #[inline(always)]
     fn load_local(&mut self, instruction: Instruction) {
-        let destination = InstructionDecoder::decode_destination_register(instruction);
-        let address = InstructionDecoder::decode_immutable_address_small(instruction);
+        let destination = instruction_decoder::decode_destination_register(instruction);
+        let address = instruction_decoder::decode_immutable_address_small(instruction);
 
         let register = unsafe {
             let local_offset = self.get_register(RegisterID::RLO as u32).value;
