@@ -91,7 +91,8 @@ pub enum OpCode {
 }
 
 pub const BYTECODE_COUNT: u32 = 44;
-pub static BYTECODE_LOOKUP_TABLE: [OpCode; 44] = [
+
+pub const BYTECODE_LOOKUP_TABLE: [OpCode; 44] = [
     OpCode::NoInstruction,
     OpCode::Move,
     OpCode::LoadK,

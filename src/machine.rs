@@ -37,7 +37,6 @@ pub struct VirtualMachine {
     immutables: Vec<NovaObject>,
     registers: [Register; RegisterID::RMax as usize + 1],
     running: bool,
-    //instruction_count: usize,
     memory: Vec<NovaObject>,
     frames: Vec<Frame>,
     locals: Vec<Register>,
@@ -115,8 +114,6 @@ impl VirtualMachine {
     }
 
     pub fn start_vm(&mut self, offset: Instruction) -> u32 {
-        let number_of_instructions = self.instructions.len() as u64;
-
         self.running = true;
         let program_counter = Register {
             kind: RegisterValueKind::MemAddress,
@@ -125,7 +122,7 @@ impl VirtualMachine {
 
         self.registers[RegisterID::RPC as usize] = program_counter;
 
-        while self.running && program_counter.value < number_of_instructions {
+        while self.running {
             #[cfg(feature = "debug")]
             self.debug();
 
