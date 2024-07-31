@@ -35,10 +35,12 @@ pub struct Register {
 }
 
 impl Register {
+    #[inline(always)]
     pub fn new(kind: RegisterValueKind, value: u64) -> Self {
         Self { kind, value }
     }
 
+    #[inline(always)]
     pub fn empty() -> Self {
         Self {
             kind: RegisterValueKind::None,
@@ -48,6 +50,7 @@ impl Register {
 }
 
 impl Default for Register {
+    #[inline(always)]
     fn default() -> Self {
         Self {
             kind: RegisterValueKind::None,

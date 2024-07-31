@@ -124,7 +124,7 @@ impl VirtualMachine {
 
         self.registers[RegisterID::RPC as usize] = program_counter;
 
-        while self.running && self.registers[RegisterID::RPC as usize].value < number_of_instructions {
+        while self.running && program_counter.value < number_of_instructions {
             #[cfg(feature = "debug")]
             self.debug();
 
@@ -142,6 +142,7 @@ impl VirtualMachine {
         0
     }
 
+    #[inline(always)]
     fn execute_instruction(&mut self, instruction: Instruction) {
         let opcode = InstructionDecoder::decode_opcode(instruction);
 
@@ -1157,16 +1158,13 @@ impl VirtualMachine {
 
     #[inline(always)]
     fn get_register(&self, register_id: Instruction) -> Register {
-        //self.registers[register_id as usize]
         unsafe {
             return *self.registers.get_unchecked(register_id as usize);
         }
-        
     }
 
     #[inline(always)]
     fn set_value_in_register(&mut self, register_id: Instruction, value: Register) {
-        //self.registers[register_id as usize] = value
         unsafe {
             let register = self.registers.get_unchecked_mut(register_id as usize);
             register.kind = value.kind;
@@ -1338,14 +1336,22 @@ impl VirtualMachine {
         let destination = InstructionDecoder::decode_destination_register(instruction);
         let address = InstructionDecoder::decode_immutable_address_small(instruction);
 
-        let local_offset = self.registers[RegisterID::RLO as usize].value;
-        let register = self.locals[(address as u64 + local_offset) as usize];
+        let register = unsafe {
+            let local_offset = self.get_register(RegisterID::RLO as u32).value;
+            *self.locals.get_unchecked((address as u64 + local_offset) as usize)
+        };
+        
         self.set_value_in_register(destination, register);
     }
 
     #[inline(always)]
     fn clear_register(&mut self, register_id: Instruction) {
-        self.registers[register_id as usize] = Register::empty()
+        let register = unsafe {
+            self.registers.get_unchecked_mut(register_id as usize)
+        };
+
+        register.kind = RegisterValueKind::None;
+        register.value = 0;
     }
 
     #[inline(always)]
@@ -1532,8 +1538,8 @@ impl VirtualMachine {
 
     #[inline(always)]
     fn peek_next_instruction(&self) -> Instruction {
-        let instruction_pointer = self.registers[RegisterID::RPC as usize].value as usize;
         unsafe {
+            let instruction_pointer = self.registers.get_unchecked(RegisterID::RPC as usize).value as usize;
             return *self.instructions.get_unchecked(instruction_pointer);
         }
     }

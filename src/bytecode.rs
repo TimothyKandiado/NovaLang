@@ -1,3 +1,4 @@
+#[repr(u8)]
 #[derive(Debug, Clone, Copy)]
 pub enum OpCode {
     NoInstruction,
@@ -92,6 +93,7 @@ pub enum OpCode {
 }
 
 impl OpCode {
+    #[inline(always)]
     pub fn to_u32(&self) -> u32 {
         *self as u32
     }

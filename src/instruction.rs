@@ -255,8 +255,9 @@ impl InstructionBuilder {
     }
 }
 
-pub struct InstructionDecoder {}
-impl InstructionDecoder {
+pub mod InstructionDecoder {
+    use super::Instruction;
+
     #[inline(always)]
     pub fn split_u64(value: u64) -> (Instruction, Instruction) {
         let first_half = (value >> 32) as u32;
