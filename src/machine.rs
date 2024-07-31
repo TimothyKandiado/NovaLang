@@ -1,7 +1,7 @@
 use crate::{
-    bytecode::OpCode,
+    bytecode::{OpCode,BYTECODE_LOOKUP_TABLE},
     frame::Frame,
-    instruction::{Instruction, InstructionBuilder, instruction_decoder},
+    instruction::{instruction_decoder, Instruction, InstructionBuilder},
     object::{MappedMemory, NativeFunction, NovaCallable, NovaObject, RegisterValueKind},
     program::Program,
     register::{Register, RegisterID},
@@ -95,6 +95,7 @@ impl VirtualMachine {
 
         for &instruction in &program.instructions {
             //self.instruction_count += 1;
+            // TODO: check validity of opcodes;
             let instruction = offset_immutable_address(instruction, immutable_offset);
             self.instructions.push(instruction);
         }
@@ -146,151 +147,155 @@ impl VirtualMachine {
     fn execute_instruction(&mut self, instruction: Instruction) {
         let opcode = instruction_decoder::decode_opcode(instruction);
 
+        let opcode = unsafe {
+            *BYTECODE_LOOKUP_TABLE.get_unchecked(opcode as usize)
+        };
+
         match opcode {
-            x if x == OpCode::NoInstruction as u32 => {
+            OpCode::NoInstruction => {
             }
             // System Interrupt
-            x if x == OpCode::Halt as u32 => {
+            OpCode::Halt => {
                 self.running = false;
             }
 
             // Unary operations
-            x if x == OpCode::Neg as u32 => {
+            OpCode::Neg => {
                 self.negate(instruction);
             }
 
             // Binary Operations
-            x if x == OpCode::Add as u32 => {
+            OpCode::Add => {
                 self.add(instruction);
             }
-            x if x == OpCode::Sub as u32 => {
+            OpCode::Sub => {
                 self.sub(instruction);
             }
-            x if x == OpCode::Mul as u32 => {
+            OpCode::Mul => {
                 self.mul(instruction);
             }
-            x if x == OpCode::Div as u32 => {
+            OpCode::Div => {
                 self.div(instruction);
             }
-            x if x == OpCode::Pow as u32 => {
+            OpCode::Pow => {
                 self.pow(instruction);
             }
-            x if x == OpCode::Mod as u32 => {
+            OpCode::Mod => {
                 self.modulus(instruction);
             }
 
             // Register Manipulation
-            x if x == OpCode::LoadK as u32 => {
+            OpCode::LoadK => {
                 self.load_constant_to_register(instruction);
             }
 
-            x if x == OpCode::LoadNil as u32 => {
+            OpCode::LoadNil => {
                 self.load_nil_to_register(instruction);
             }
 
-            x if x == OpCode::LoadBool as u32 => {
+            OpCode::LoadBool => {
                 self.load_bool_to_register(instruction);
             }
 
-            x if x == OpCode::LoadFloat32 as u32 => {
+            OpCode::LoadFloat32 => {
                 self.load_float32_to_register(instruction);
             }
 
-            x if x == OpCode::LoadFloat64 as u32 => {
+            OpCode::LoadFloat64 => {
                 self.load_float64_to_register(instruction);
             }
 
-            x if x == OpCode::LoadInt32 as u32 => {
+            OpCode::LoadInt32 => {
                 self.load_int32_to_register(instruction);
             }
 
-            x if x == OpCode::LoadInt64 as u32 => {
+            OpCode::LoadInt64 => {
                 self.load_int64_to_register(instruction);
             }
 
-            x if x == OpCode::Move as u32 => {
+            OpCode::Move => {
                 self.move_register(instruction);
             }
 
             // Variable Manipulation
-            x if x == OpCode::DefineGlobalIndirect as u32 => {
+            OpCode::DefineGlobalIndirect => {
                 self.define_global_indirect(instruction);
             }
 
-            x if x == OpCode::StoreGlobalIndirect as u32 => {
+            OpCode::StoreGlobalIndirect => {
                 self.store_global_indirect(instruction);
             }
 
-            x if x == OpCode::LoadGlobalIndirect as u32 => {
+            OpCode::LoadGlobalIndirect => {
                 self.load_global_indirect(instruction);
             }
 
-            x if x == OpCode::LoadGlobal as u32 => {
+            OpCode::LoadGlobal => {
                 let destination = instruction_decoder::decode_destination_register(instruction);
                 let address = instruction_decoder::decode_immutable_address_small(instruction);
 
                 self.load_global_value(destination, address);
             }
 
-            x if x == OpCode::AllocateLocal as u32 => {
+            OpCode::AllocateLocal => {
                 self.allocate_locals(instruction);
             }
 
-            x if x == OpCode::DeallocateLocal as u32 => {
+            OpCode::DeallocateLocal => {
                 self.deallocate_locals(instruction);
             }
 
-            x if x == OpCode::StoreLocal as u32 => {
+            OpCode::StoreLocal => {
                 self.store_local(instruction);
             }
 
-            x if x == OpCode::LoadLocal as u32 => {
+            OpCode::LoadLocal => {
                 self.load_local(instruction);
             }
 
             // Logical tests
-            x if x == OpCode::Less as u32 => {
+            OpCode::Less => {
                 self.less(instruction);
             }
 
-            x if x == OpCode::LessEqual as u32 => {
+            OpCode::LessEqual => {
                 self.less_or_equal(instruction);
             }
 
-            x if x == OpCode::Not as u32 => {
+            OpCode::Not => {
                 self.not(instruction);
             }
 
-            x if x == OpCode::Equal as u32 => {
+            OpCode::Equal => {
                 self.equal(instruction);
             }
 
             // Control flow
-            x if x == OpCode::JumpFalse as u32 => {
+            OpCode::JumpFalse => {
                 self.jump_if_false(instruction);
             }
 
-            x if x == OpCode::Jump as u32 => {
+            OpCode::Jump => {
                 self.jump(instruction);
             }
 
-            x if x == OpCode::Invoke as u32 => {
+            OpCode::Invoke => {
                 self.invoke(instruction);
             }
 
-            x if x == OpCode::ReturnNone as u32 => self.return_none(),
+            OpCode::ReturnNone => self.return_none(),
 
-            x if x == OpCode::ReturnVal as u32 => self.return_val(instruction),
+            OpCode::ReturnVal => self.return_val(instruction),
 
-            x if x == OpCode::LoadReturn as u32 => self.load_return(instruction),
+            OpCode::LoadReturn => self.load_return(instruction),
 
             // IO
-            x if x == OpCode::Print as u32 => {
+            OpCode::Print => {
                 self.print(instruction);
             }
 
             _ => self.emit_error_with_message(&format!(
-                "Unsupported opcode instruction ({:#x})",
+                "Unsupported opcode instruction ({:?})",
                 opcode
             )),
         }

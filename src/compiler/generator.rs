@@ -167,7 +167,6 @@ impl BytecodeGenerator {
         let opcode = instruction_decoder::decode_opcode(last_instruction);
 
         match opcode {
-            x if x == OpCode::CallIndirect.to_u32() => {}
             x if x == OpCode::Print.to_u32() => {}
             x if x == OpCode::Invoke.to_u32() => {}
             _ => return,

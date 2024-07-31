@@ -72,8 +72,6 @@ pub enum OpCode {
     LoadLocal,
     /// Print value in register
     Print,
-    /// Call a function [CALLINDIRECT DR:START_ARG SR1:NUM_ARG]
-    CallIndirect,
     /// Invoke call
     Invoke,
     /// While loop
@@ -88,9 +86,57 @@ pub enum OpCode {
     ReturnNone,
     /// Return value
     ReturnVal,
-
+    /// Stop the interpreter
     Halt,
 }
+
+pub const BYTECODE_COUNT: u32 = 44;
+pub static BYTECODE_LOOKUP_TABLE: [OpCode; 44] = [
+    OpCode::NoInstruction,
+    OpCode::Move,
+    OpCode::LoadK,
+    OpCode::LoadNil,
+    OpCode::LoadBool,
+    OpCode::LoadInt32,
+    OpCode::LoadInt64,
+    OpCode::LoadFloat32,
+    OpCode::LoadFloat64,
+    OpCode::LoadReturn,
+    OpCode::ClearReturn,
+    OpCode::This,
+    OpCode::Add,
+    OpCode::Sub,
+    OpCode::Mul,
+    OpCode::Div,
+    OpCode::Mod,
+    OpCode::Pow,
+    OpCode::Neg,
+    OpCode::Not,
+    OpCode::And,
+    OpCode::Or,
+    OpCode::Less,
+    OpCode::LessEqual,
+    OpCode::Equal,
+    OpCode::JumpFalse,
+    OpCode::Jump,
+    OpCode::DefineGlobalIndirect,
+    OpCode::StoreGlobalIndirect,
+    OpCode::LoadGlobalIndirect,
+    OpCode::LoadGlobal,
+    OpCode::AllocateLocal,
+    OpCode::DeallocateLocal,
+    OpCode::StoreLocal,
+    OpCode::LoadLocal,
+    OpCode::Print,
+    OpCode::Invoke,
+    OpCode::While,
+    OpCode::Loop,
+    OpCode::Break,
+    OpCode::NewFrame,
+    OpCode::ReturnNone,
+    OpCode::ReturnVal,
+    OpCode::Halt,
+]; 
 
 impl OpCode {
     #[inline(always)]

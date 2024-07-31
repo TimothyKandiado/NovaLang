@@ -164,17 +164,6 @@ pub fn debug_instruction(
             "NEWFRAME".to_string()
         }
 
-        x if x == OpCode::CallIndirect as u32 => {
-            let parameter_start = instruction_decoder::decode_destination_register(instruction);
-            let parameters = instruction_decoder::decode_source_register_1(instruction);
-            let name_address = instruction_decoder::decode_immutable_address_small(instruction);
-
-            format!(
-                "CALL_INDIRECT {} {} {} ",
-                parameter_start, parameters, name_address
-            )
-        }
-
         x if x == OpCode::Invoke as u32 => {
             let parameter_start = instruction_decoder::decode_destination_register(instruction);
             let parameters = instruction_decoder::decode_source_register_1(instruction);
