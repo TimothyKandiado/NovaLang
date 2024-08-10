@@ -1,3 +1,5 @@
+use std::ptr::copy_nonoverlapping;
+
 use crate::{
     bytecode::{OpCode,BYTECODE_LOOKUP_TABLE},
     frame::Frame,
@@ -395,15 +397,12 @@ impl VirtualMachine {
                 let num_locals = function.number_of_locals;
                 let old_frame = self.new_frame(num_locals);
 
-                let mut source_index = argument_start as usize;
+                let source_index = argument_start as usize;
                 let source_end = (argument_start + argument_number) as usize;
-                let mut destination_index = 0;
+                let destination_index = 0;
+                let length = source_end - source_index;
 
-                while source_index < source_end {
-                    self.registers[destination_index] = old_frame.registers[source_index];
-                    destination_index += 1;
-                    source_index += 1;
-                }
+                array_copy(&old_frame.registers, source_index, &mut self.registers, destination_index, length);
 
                 self.registers[RegisterID::RPC as usize].value = address as u64;
             }
@@ -1628,4 +1627,32 @@ fn print_vec_of_registers(registers: &[Register]) {
         println!("\t[{}] {}, ", index, register)
     }
     println!("]");
+}
+
+#[inline(always)]
+fn array_copy<T>(source: &[T], source_index: usize, destination: &mut [T], destination_index: usize, length: usize) {
+    unsafe {
+        let src = source.as_ptr().offset(source_index as isize);
+        let dest = destination.as_mut_ptr().offset(destination_index as isize);
+
+        copy_nonoverlapping(src, dest, length);
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use crate::machine::array_copy;
+
+    #[test]
+    fn test_array_copy() {
+        let src = [1, 2, 3, 4, 5, 6];
+        let mut dest = [0; 6];
+
+        //println!("Source: {:?}", src);
+        //println!("Destination before = {:?}", dest);
+        array_copy(&src, 2, &mut dest, 0, 3);
+        //println!("Destination after = {:?}", dest);
+        let expected_dest = [3, 4, 5, 0, 0, 0];
+        assert_eq!(expected_dest, dest);
+    }
 }
