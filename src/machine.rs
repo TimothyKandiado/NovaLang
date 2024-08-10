@@ -1409,7 +1409,7 @@ impl VirtualMachine {
         let destination = instruction_decoder::decode_destination_register(instruction);
         let index = instruction_decoder::decode_immutable_address_small(instruction);
 
-        let immutable = self.immutables[index as usize].clone();
+        let immutable = unsafe {self.immutables.get_unchecked(index as usize)};
 
         if let NovaObject::String(name) = immutable {
             let global_address = self.identifiers.get(name.as_str());
