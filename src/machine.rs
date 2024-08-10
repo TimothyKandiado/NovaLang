@@ -1,3 +1,4 @@
+
 use std::ptr::copy_nonoverlapping;
 
 use crate::{
@@ -318,8 +319,8 @@ impl VirtualMachine {
 
     #[inline(always)]
     fn new_frame(&mut self, num_locals: Instruction) -> Frame {
-        let return_address = self.registers[RegisterID::RPC as usize].value;
-        let local_offset = self.registers[RegisterID::RLO as usize].value;
+        let return_address = unsafe {self.registers.get_unchecked(RegisterID::RPC as usize).value};
+        let local_offset = unsafe {self.registers.get_unchecked(RegisterID::RLO as usize).value};
 
         let old_registers = self.registers;
         let frame = Frame::new(old_registers, return_address, local_offset, false);
@@ -330,20 +331,29 @@ impl VirtualMachine {
         self.set_local_offset();
 
         self.allocate_local_variables(num_locals);
-        self.registers[RegisterID::RMax as usize] = Register::new(RegisterValueKind::MemAddress, num_locals as u64);
 
+        unsafe {
+            let register = self.registers.get_unchecked_mut(RegisterID::RMax as usize);
+            register.kind = RegisterValueKind::MemAddress;
+            register.value = num_locals as u64;
+        }
+        
         frame
     }
 
     #[inline(always)]
     fn set_local_offset(&mut self) {
-        self.registers[RegisterID::RLO as usize].value = (self.locals.len()) as u64;
-    }
+        unsafe {
+            self.registers.get_unchecked_mut(RegisterID::RLO as usize).value = (self.locals.len()) as u64;
+            }
+        }
+        
 
     #[inline(always)]
     fn drop_frame(&mut self) {
-        let return_value = self.registers[RegisterID::RRTN as usize];
-        let num_locals = self.registers[RegisterID::RMax as usize].value;
+        let return_value = unsafe {*self.registers.get_unchecked(RegisterID::RRTN as usize)};
+        let num_locals = unsafe {self.registers.get_unchecked(RegisterID::RMax as usize).value};
+
         self.deallocate_local_variables(num_locals as u32);
 
         let frame = self.frames.pop();
@@ -355,7 +365,12 @@ impl VirtualMachine {
             }
 
             self.registers = frame.registers;
-            self.registers[RegisterID::RRTN as usize] = return_value;
+            unsafe {
+                let register = self.registers.get_unchecked_mut(RegisterID::RRTN as usize);
+                register.kind = return_value.kind;
+                register.value = return_value.value;
+            }
+            
         } else {
             self.running = false;
         }
@@ -556,7 +571,7 @@ impl VirtualMachine {
             let sum = value_1 + value_2;
             let sum = sum.to_bits();
 
-            let new_value = Register::new(register_1.kind, sum);
+            let new_value = Register::new(RegisterValueKind::Float64, sum);
             self.set_value_in_register(destination_register, new_value);
             return;
         }
@@ -567,10 +582,10 @@ impl VirtualMachine {
             let value_1 = register_1.value as i64;
             let value_2 = register_2.value as i64;
 
-            let sum = value_1 + value_2;
-            let sum = sum as u64;
+            let result = value_1 + value_2;
+            let result = result as u64;
 
-            let new_value = Register::new(register_1.kind, sum);
+            let new_value = Register::new(RegisterValueKind::Int64, result);
             self.set_value_in_register(destination_register, new_value);
             return;
         }
@@ -581,10 +596,10 @@ impl VirtualMachine {
             let value_1 = f64::from_bits(register_1.value);
             let value_2 = register_2.value as i64;
 
-            let sum = value_1 + (value_2 as f64);
-            let sum = sum.to_bits();
+            let result = value_1 + (value_2 as f64);
+            let result = result.to_bits();
 
-            let new_value = Register::new(register_1.kind, sum);
+            let new_value = Register::new(RegisterValueKind::Float64, result);
             self.set_value_in_register(destination_register, new_value);
             return;
         }
@@ -595,10 +610,10 @@ impl VirtualMachine {
             let value_1 = register_1.value as i64;
             let value_2 = f64::from_bits(register_2.value);
 
-            let sum = value_1 as f64 + value_2;
-            let sum = sum.to_bits();
+            let result = value_1 as f64 + value_2;
+            let result = result.to_bits();
 
-            let new_value = Register::new(register_1.kind, sum);
+            let new_value = Register::new(RegisterValueKind::Float64, result);
             self.set_value_in_register(destination_register, new_value);
             return;
         }
@@ -729,7 +744,35 @@ impl VirtualMachine {
             let result = value_1 - value_2;
             let result = result as u64;
 
-            let new_value = Register::new(register_1.kind, result);
+            let new_value = Register::new(RegisterValueKind::Int64, result);
+            self.set_value_in_register(destination_register, new_value);
+            return;
+        }
+
+        if let (RegisterValueKind::Float64, RegisterValueKind::Int64) =
+            (register_1.kind, register_2.kind)
+        {
+            let value_1 = f64::from_bits(register_1.value);
+            let value_2 = register_2.value as i64;
+
+            let result = value_1 - (value_2 as f64);
+            let result = result.to_bits();
+
+            let new_value = Register::new(RegisterValueKind::Float64, result);
+            self.set_value_in_register(destination_register, new_value);
+            return;
+        }
+
+        if let (RegisterValueKind::Int64, RegisterValueKind::Float64) =
+            (register_1.kind, register_2.kind)
+        {
+            let value_1 = register_1.value as i64;
+            let value_2 = f64::from_bits(register_2.value);
+
+            let result = value_1 as f64 - value_2;
+            let result = result.to_bits();
+
+            let new_value = Register::new(RegisterValueKind::Float64, result);
             self.set_value_in_register(destination_register, new_value);
             return;
         }
@@ -772,7 +815,35 @@ impl VirtualMachine {
             let result = value_1 * value_2;
             let result = result as u64;
 
-            let new_value = Register::new(register_1.kind, result);
+            let new_value = Register::new(RegisterValueKind::Int64, result);
+            self.set_value_in_register(destination_register, new_value);
+            return;
+        }
+
+        if let (RegisterValueKind::Float64, RegisterValueKind::Int64) =
+            (register_1.kind, register_2.kind)
+        {
+            let value_1 = f64::from_bits(register_1.value);
+            let value_2 = register_2.value as i64;
+
+            let result = value_1 * (value_2 as f64);
+            let result = result.to_bits();
+
+            let new_value = Register::new(RegisterValueKind::Float64, result);
+            self.set_value_in_register(destination_register, new_value);
+            return;
+        }
+
+        if let (RegisterValueKind::Int64, RegisterValueKind::Float64) =
+            (register_1.kind, register_2.kind)
+        {
+            let value_1 = register_1.value as i64;
+            let value_2 = f64::from_bits(register_2.value);
+
+            let result = value_1 as f64 * value_2;
+            let result = result.to_bits();
+
+            let new_value = Register::new(RegisterValueKind::Float64, result);
             self.set_value_in_register(destination_register, new_value);
             return;
         }
@@ -820,6 +891,35 @@ impl VirtualMachine {
             return;
         }
 
+
+        if let (RegisterValueKind::Float64, RegisterValueKind::Int64) =
+            (register_1.kind, register_2.kind)
+        {
+            let value_1 = f64::from_bits(register_1.value);
+            let value_2 = register_2.value as i64;
+
+            let result = value_1 / (value_2 as f64);
+            let result = result.to_bits();
+
+            let new_value = Register::new(RegisterValueKind::Float64, result);
+            self.set_value_in_register(destination_register, new_value);
+            return;
+        }
+
+        if let (RegisterValueKind::Int64, RegisterValueKind::Float64) =
+            (register_1.kind, register_2.kind)
+        {
+            let value_1 = register_1.value as i64;
+            let value_2 = f64::from_bits(register_2.value);
+
+            let result = value_1 as f64 / value_2;
+            let result = result.to_bits();
+
+            let new_value = Register::new(RegisterValueKind::Float64, result);
+            self.set_value_in_register(destination_register, new_value);
+            return;
+        }
+
         self.emit_error_with_message(&format!(
             "cannot divide {:?} by {:?}",
             register_1.kind, register_2.kind
@@ -845,6 +945,48 @@ impl VirtualMachine {
             let pow = pow.to_bits();
 
             let new_value = Register::new(register_1.kind, pow);
+            self.set_value_in_register(destination_register, new_value);
+            return;
+        }
+
+        if let (RegisterValueKind::Int64, RegisterValueKind::Int64) =
+            (register_1.kind, register_2.kind)
+        {
+            let value_1 = register_1.value as i64;
+            let value_2 = register_2.value as i64;
+
+            let result = (value_1 as f64).powf(value_2 as f64);
+            let result = result.to_bits();
+
+            let new_value = Register::new(RegisterValueKind::Float64, result);
+            self.set_value_in_register(destination_register, new_value);
+            return;
+        }
+
+        if let (RegisterValueKind::Float64, RegisterValueKind::Int64) =
+            (register_1.kind, register_2.kind)
+        {
+            let value_1 = f64::from_bits(register_1.value);
+            let value_2 = register_2.value as i64;
+
+            let result = value_1.powf(value_2 as f64);
+            let result = result.to_bits();
+
+            let new_value = Register::new(RegisterValueKind::Float64, result);
+            self.set_value_in_register(destination_register, new_value);
+            return;
+        }
+
+        if let (RegisterValueKind::Int64, RegisterValueKind::Float64) =
+            (register_1.kind, register_2.kind)
+        {
+            let value_1 = register_1.value as i64;
+            let value_2 = f64::from_bits(register_2.value);
+
+            let result = (value_1 as f64).powf(value_2);
+            let result = result.to_bits();
+
+            let new_value = Register::new(RegisterValueKind::Float64, result);
             self.set_value_in_register(destination_register, new_value);
             return;
         }
@@ -1313,12 +1455,14 @@ impl VirtualMachine {
 
     #[inline(always)]
     fn deallocate_local_variables(&mut self, number_of_locals: Instruction) {
-        let mut number = number_of_locals;
+        let number = number_of_locals as usize;
 
-        while number > 0 {
+/*         while number > 0 {
             number -= 1;
             self.locals.pop();
-        }
+        } */
+
+       self.locals.drain(self.locals.len() - number ..);
     }
 
     #[inline(always)]
