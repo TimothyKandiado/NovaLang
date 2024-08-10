@@ -1371,8 +1371,13 @@ impl VirtualMachine {
     /// load value from a specified global address
     #[inline(always)]
     fn load_global_value(&mut self, destination: Instruction, global_address: Instruction) {
-        let value = self.globals[global_address as usize];
-        self.registers[destination as usize] = value;
+        let value = unsafe {*self.globals.get_unchecked(global_address as usize)};
+        unsafe {
+            let register = self.registers.get_unchecked_mut(destination as usize);
+
+            register.kind = value.kind;
+            register.value = value.value;
+        }
     }
 
     /// store a value in a global location by first looking up name in the immutables array
