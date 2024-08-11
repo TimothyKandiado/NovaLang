@@ -2,12 +2,7 @@
 use std::ptr::copy_nonoverlapping;
 
 use crate::{
-    bytecode::{OpCode,BYTECODE_LOOKUP_TABLE},
-    frame::Frame,
-    instruction::{instruction_decoder, Instruction, InstructionBuilder},
-    object::{MappedMemory, NativeFunction, NovaCallable, NovaObject, RegisterValueKind},
-    program::Program,
-    register::{Register, RegisterID},
+    bytecode::{OpCode,BYTECODE_LOOKUP_TABLE}, cache::MemoryCache, frame::Frame, instruction::{instruction_decoder, Instruction, InstructionBuilder}, object::{MappedMemory, NativeFunction, NovaCallable, NovaObject, RegisterValueKind}, program::Program, register::{Register, RegisterID}
 };
 
 #[cfg(feature = "debug")]
@@ -45,6 +40,7 @@ pub struct VirtualMachine {
     locals: Vec<Register>,
     globals: Vec<Register>,
     identifiers: MappedMemory,
+    mem_cache: MemoryCache,
 }
 
 impl Default for VirtualMachine {
@@ -65,6 +61,7 @@ impl VirtualMachine {
             locals: Vec::new(),
             globals: Vec::new(),
             identifiers: MappedMemory::default(),
+            mem_cache: MemoryCache::default()
         }
     }
 
@@ -419,7 +416,9 @@ impl VirtualMachine {
 
                 array_copy(&old_frame.registers, source_index, &mut self.registers, destination_index, length);
 
-                self.registers[RegisterID::RPC as usize].value = address as u64;
+                unsafe {
+                    self.registers.get_unchecked_mut(RegisterID::RPC as usize).value = address as u64;
+                }
             }
 
             NovaCallable::NativeFunction(function) => {
@@ -1359,13 +1358,18 @@ impl VirtualMachine {
     /// set value of a specified global location
     #[inline(always)]
     fn set_global_value(&mut self, address: Instruction, new_value: Register) {
-        let current_value = self.globals[address as usize];
+        let current_value = unsafe {self.globals.get_unchecked(address as usize)};
 
         if current_value.kind.is_mem_address() {
             self.free_memory_location(current_value.value as u32);
         }
 
-        self.globals[address as usize] = new_value;
+        unsafe {
+            let global = self.globals.get_unchecked_mut(address as usize);
+            global.kind = new_value.kind;
+            global.value = new_value.value;
+        }
+        
     }
 
     /// load value from a specified global address
@@ -1386,15 +1390,24 @@ impl VirtualMachine {
         let source = instruction_decoder::decode_source_register_1(instruction);
         let index = instruction_decoder::decode_immutable_address_small(instruction);
 
-        let immutable = self.immutables[index as usize].clone();
+        let register = self.get_register(source);
+
+        if let Some(&address) = self.mem_cache.get_cache(&(index as usize)) {
+            self.set_global_value(address as u32, register);
+            self.clear_register(source);
+            return;
+        }
+
+        let immutable = unsafe {self.immutables.get_unchecked(index as usize)};
 
         if let NovaObject::String(name) = immutable {
             let global_address = self.identifiers.get(name.as_str());
 
             if let Some(&address) = global_address {
-                let register = self.get_register(source);
+                
+                self.mem_cache.add_cache(index as usize, address as usize);
                 self.set_global_value(address, register);
-                self.clear_register(source);
+                
 
                 return;
             }
@@ -1414,12 +1427,18 @@ impl VirtualMachine {
         let destination = instruction_decoder::decode_destination_register(instruction);
         let index = instruction_decoder::decode_immutable_address_small(instruction);
 
+        if let Some(&address) = self.mem_cache.get_cache(&(index as usize)) {
+            self.load_global_value(destination, address as u32);
+            return;
+        }
+
         let immutable = unsafe {self.immutables.get_unchecked(index as usize)};
 
         if let NovaObject::String(name) = immutable {
             let global_address = self.identifiers.get(name.as_str());
 
             if let Some(&address) = global_address {
+                self.mem_cache.add_cache(index as usize, address as usize);
                 self.load_global_value(destination, address);
 
                 return;
@@ -1436,9 +1455,7 @@ impl VirtualMachine {
     fn allocate_locals(&mut self, instruction: Instruction) {
         // number of variables
         let number = instruction_decoder::decode_immutable_address_small(instruction);
-        let mut local_space = vec![Register::default(); number as usize];
-
-        self.locals.append(&mut local_space)
+        self.allocate_local_variables(number);
     }
 
     #[inline(always)]
@@ -1450,24 +1467,16 @@ impl VirtualMachine {
     #[inline(always)]
     fn deallocate_locals(&mut self, instruction: Instruction) {
         // number of variables
-        let mut number = instruction_decoder::decode_immutable_address_small(instruction);
+        let number = instruction_decoder::decode_immutable_address_small(instruction) as usize;
 
-        while number > 0 {
-            number -= 1;
-            self.locals.pop();
-        }
+        self.locals.drain(self.locals.len() - number ..);
     }
 
     #[inline(always)]
     fn deallocate_local_variables(&mut self, number_of_locals: Instruction) {
         let number = number_of_locals as usize;
 
-/*         while number > 0 {
-            number -= 1;
-            self.locals.pop();
-        } */
-
-       self.locals.drain(self.locals.len() - number ..);
+        self.locals.drain(self.locals.len() - number ..);
     }
 
     #[inline(always)]
@@ -1476,8 +1485,14 @@ impl VirtualMachine {
         let address = instruction_decoder::decode_immutable_address_small(instruction);
 
         let register = self.get_register(source);
-        let local_offset = self.registers[RegisterID::RLO as usize].value;
-        self.locals[(address + local_offset as u32) as usize] = register;
+        let local_offset = unsafe {self.registers.get_unchecked(RegisterID::RLO as usize).value};
+        unsafe {
+            let local = self.locals.get_unchecked_mut((address + local_offset as u32) as usize);
+
+            local.value = register.value;
+            local.kind = register.kind;
+        }
+        
         self.clear_register(source);
     }
 

@@ -8,9 +8,15 @@ fn vec_distance(x, y)
     return distance
 end
 
-length := 10
-width := 5
+fn main()
+    length := 10
+    width := 5
 
-hypotenuse := vec_distance(length, width)
+    dist := vec_distance
 
-println("Distance = ", hypotenuse)
+    hypotenuse := dist(length, width)
+
+    println("Distance = ", hypotenuse)
+end
+
+main()

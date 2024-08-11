@@ -14,6 +14,8 @@ pub enum RegisterID {
     R8,
     R9,
     R10,
+    /// Max number of general registers
+    R15 = 16,
     /// Local offset
     RLO,
     /// Error tracker
@@ -24,8 +26,8 @@ pub enum RegisterID {
     RCND,
     /// Return
     RRTN,
-    /// Max number of general registers / also stores number of local variables in called function
-    RMax = 16,
+    /// Max number of all registers / also stores number of local variables in called function
+    RMax,
 }
 
 #[derive(Debug, Clone, Copy)]
