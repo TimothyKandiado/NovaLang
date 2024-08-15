@@ -32,5 +32,6 @@ fn get_program() -> Program {
     Program {
         instructions,
         immutables,
+        ..Default::default()
     }
 }

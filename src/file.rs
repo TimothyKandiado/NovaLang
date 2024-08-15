@@ -146,6 +146,7 @@ pub fn read_program_file(path: &str) -> Result<Program, Box<dyn Error>> {
     Ok(Program {
         instructions,
         immutables,
+        ..Default::default()
     })
 }
 
@@ -272,6 +273,7 @@ mod file_tests {
         Program {
             instructions,
             immutables,
+            ..Default::default()
         }
     }
 }
