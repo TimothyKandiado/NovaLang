@@ -1,4 +1,4 @@
-use crate::{bytecode::OpCode, instruction::{instruction_decoder, Instruction}, object::{NovaCallable, NovaObject, RegisterValueKind}, register::{Register, RegisterID}};
+use crate::{bytecode::OpCode, instruction::{instruction_decoder, Instruction}, object::{NovaCallable, NovaFunctionID, NovaObject, RegisterValueKind}, register::{Register, RegisterID}};
 
 use super::{array_copy, memory_management::{allocate_global, allocate_local_variables, create_global, load_global_value, load_object_from_memory, set_global_value, store_object_in_memory}, program_management::{check_error, drop_frame, emit_error_with_message, get_next_instruction, new_frame}, register_management::{clear_register, compare_registers, get_register, is_truthy, load_f64_to_register, load_i64_to_register, load_memory_address_to_register, package_register_into_nova_object, set_value_in_register}, VirtualMachineData};
 
@@ -6,16 +6,23 @@ use super::{array_copy, memory_management::{allocate_global, allocate_local_vari
 #[inline(always)]
 pub fn invoke(instruction: Instruction, virtual_machine_data: &mut VirtualMachineData) {
     let registers = &mut virtual_machine_data.registers;
-    let memory = &mut virtual_machine_data.memory;
-    let frames = &mut virtual_machine_data.frames;
-    let locals = &mut virtual_machine_data.locals;
-    let immutables = &mut virtual_machine_data.immutables;
-
     let invoke_register = instruction_decoder::decode_source_register_2(instruction);
     let argument_start = instruction_decoder::decode_destination_register(instruction);
     let argument_number = instruction_decoder::decode_source_register_1(instruction);
 
     let register = get_register(*registers, invoke_register);
+
+    if let RegisterValueKind::NovaFunctionID(nova_function_id) = register.kind {
+        let function_address = register.value;
+        invoke_nova_function_id(virtual_machine_data, nova_function_id, function_address, argument_start, argument_number);
+        return;
+    }
+
+    let registers = &mut virtual_machine_data.registers;
+    let memory = &mut virtual_machine_data.memory;
+    let frames = &mut virtual_machine_data.frames;
+    let locals = &mut virtual_machine_data.locals;
+    let immutables = &mut virtual_machine_data.immutables;
 
     if register.kind != RegisterValueKind::MemAddress {
         
@@ -33,8 +40,7 @@ pub fn invoke(instruction: Instruction, virtual_machine_data: &mut VirtualMachin
 
     match callable {
         NovaCallable::NovaFunction(function) => {
-            let address = function.address;
-
+            let function_address = function.address;
             if argument_number != function.arity {
                 emit_error_with_message(*registers, *memory, &format!(
                     "Not enough function arguments.\n{} are required\n{} were provided",
@@ -42,19 +48,19 @@ pub fn invoke(instruction: Instruction, virtual_machine_data: &mut VirtualMachin
                 ));
                 return;
             }
-
+        
             let num_locals = function.number_of_locals;
             let old_frame = new_frame(*registers, *frames, *locals, num_locals);
-
+        
             let source_index = argument_start as usize;
             let source_end = (argument_start + argument_number) as usize;
             let destination_index = 0;
             let length = source_end - source_index;
-
+        
             array_copy(&old_frame.registers, source_index, *registers, destination_index, length);
-
+        
             unsafe {
-                registers.get_unchecked_mut(RegisterID::RPC as usize).value = address as u64;
+                registers.get_unchecked_mut(RegisterID::RPC as usize).value = function_address as u64;
             }
         }
 
@@ -106,6 +112,38 @@ pub fn invoke(instruction: Instruction, virtual_machine_data: &mut VirtualMachin
         NovaCallable::None => {
             emit_error_with_message(*registers, *memory, "Called a None Value");
         }
+    }
+}
+
+#[inline(always)]
+fn invoke_nova_function_id(virtual_machine_data: &mut VirtualMachineData, nova_function_id: NovaFunctionID, function_address: u64, argument_start: u32, argument_number: u32) {
+    let registers = &mut virtual_machine_data.registers;
+    let memory = &mut virtual_machine_data.memory;
+    let frames = &mut virtual_machine_data.frames;
+    let locals = &mut virtual_machine_data.locals;
+
+    let function = nova_function_id.to_labelled();
+
+    if argument_number != function.arity {
+        emit_error_with_message(*registers, *memory, &format!(
+            "Not enough function arguments.\n{} are required\n{} were provided",
+            function.arity, argument_number
+        ));
+        return;
+    }
+
+    let num_locals = function.number_of_locals;
+    let old_frame = new_frame(*registers, *frames, *locals, num_locals);
+
+    let source_index = argument_start as usize;
+    let source_end = (argument_start + argument_number) as usize;
+    let destination_index = 0;
+    let length = source_end - source_index;
+
+    array_copy(&old_frame.registers, source_index, *registers, destination_index, length);
+
+    unsafe {
+        registers.get_unchecked_mut(RegisterID::RPC as usize).value = function_address as u64;
     }
 }
 
@@ -180,6 +218,8 @@ pub fn print(instruction: Instruction, virtual_machine_data: &mut VirtualMachine
             let immutable = &immutables[register.value as usize];
             print!("{}", immutable);
         }
+
+        RegisterValueKind::NovaFunctionID(_) => todo!()
     }
     if newline == 1 {
         println!()

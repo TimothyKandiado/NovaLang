@@ -118,6 +118,8 @@ pub enum RegisterValueKind {
     MemAddress,
     /// Index of object in immutables array
     ImmAddress,
+
+    NovaFunctionID(NovaFunctionID)
 }
 
 impl RegisterValueKind {
@@ -147,3 +149,91 @@ impl RegisterValueKind {
     }
 }
 
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub struct NovaFunctionID {
+    pub value: u32
+}
+
+impl NovaFunctionID {
+    pub fn from_nova_function(nova_function: &NovaFunction, name_address: Instruction) -> Option<Self>{
+        let mut value = 0u32;
+
+        if nova_function.number_of_locals > 32 {
+            return None
+        }
+
+        let shifted = (nova_function.number_of_locals as u32) << 27;
+        value += shifted;
+
+        if nova_function.arity > 8 {
+            return None
+        }
+
+        let shifted = (nova_function.arity as u32) << 24;
+        value += shifted;
+
+        let is_method = if nova_function.is_method {1u32} else {0u32};
+        let shifted = is_method << 23;
+
+        value += shifted;
+
+        if name_address > 2u32.pow(20u32) {
+            return None
+        }
+
+        value += name_address;
+
+        Some(Self { value })
+    }
+
+    pub fn to_labelled(&self) -> NovaFunctionIDLabelled {
+        let mut value = self.value;
+        let name_address = value & 0xfffff;
+        value = value >> 23;
+        let is_method = value & 0x1;
+        let is_method = is_method == 1;
+        value = value >> 1;
+        let arity = value & 0b111;
+        value = value >> 3;
+        let number_of_locals = value;
+
+        NovaFunctionIDLabelled {
+            name_address,
+            arity,
+            number_of_locals,
+            is_method
+        }
+    }
+}
+
+pub struct NovaFunctionIDLabelled {
+    pub name_address: u32,
+    pub arity: u32,
+    pub number_of_locals: u32,
+    pub is_method: bool
+}
+
+#[cfg(test)]
+mod tests {
+    use super::{NovaFunction, NovaFunctionID};
+
+    #[test]
+    fn test_nova_function_id_serialization() {
+        let novafunction = NovaFunction {
+            name: Box::new(String::from("Hello")),
+            arity: 4,
+            address: 50,
+            is_method: false,
+            number_of_locals: 20
+        };
+
+        let name_address = 4444;
+        let nova_function_id = NovaFunctionID::from_nova_function(&novafunction, name_address).unwrap();
+        let labelled = nova_function_id.to_labelled();
+
+        assert_eq!(novafunction.arity, labelled.arity);
+        assert_eq!(novafunction.number_of_locals, labelled.number_of_locals);
+        assert_eq!(novafunction.is_method, labelled.is_method);
+        assert_eq!(name_address, labelled.name_address);
+    }
+}

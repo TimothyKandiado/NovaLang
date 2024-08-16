@@ -83,6 +83,8 @@ impl Display for Register {
                 "{:<10} : {:>#10x} | {:>10}",
                 "ImmAddress", self.value, self.value
             ),
+
+            _ => todo!()
         };
 
         write!(f, "{}", description)

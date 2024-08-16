@@ -246,7 +246,8 @@ pub fn package_register_into_nova_object(registers: &mut [Register], memory: &[N
         RegisterValueKind::None => NovaObject::None,
         RegisterValueKind::MemAddress => load_object_from_memory(memory, register.value).clone(),
         RegisterValueKind::ImmAddress => immutables[register.value as usize].clone(),
-        RegisterValueKind::Bool => todo!()
+        RegisterValueKind::Bool => todo!(),
+        RegisterValueKind::NovaFunctionID(_) => todo!()
     };
 
     value
@@ -261,5 +262,6 @@ pub fn is_truthy(register: Register) -> bool {
         RegisterValueKind::Bool => register.value == 1,
         RegisterValueKind::MemAddress => true,
         RegisterValueKind::ImmAddress => true,
+        RegisterValueKind::NovaFunctionID(_) => true,
     }
 }
