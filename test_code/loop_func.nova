@@ -1,0 +1,23 @@
+fn main()
+    iterations := 1E7
+    index := 0
+    type := "milli"
+
+    println(iterations, " iterations")
+
+    start_time := time(type)
+
+    while index < iterations
+        index = increment(index)
+    end
+
+    end_time := time(type)
+    println("Elapsed time = ", end_time - start_time, " ", type)
+end
+
+fn increment(number)
+    return number + 1
+end
+
+println("Looping benchmark")
+main()

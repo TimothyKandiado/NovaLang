@@ -165,7 +165,8 @@ fn invoke_nova_function_id_labelled(
     }
 
     let num_locals = function.number_of_locals;
-    let old_frame = new_frame(*registers, *frames, *locals, num_locals);
+    new_frame(*registers, *frames, *locals, num_locals);
+    let old_frame = frames.last().unwrap();
 
     let source_index = argument_start as usize;
     let source_end = (argument_start + argument_number) as usize;

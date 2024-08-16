@@ -2,13 +2,17 @@ use crate::{
     bytecode::OpCode,
     instruction::{instruction_decoder, Instruction},
     object::{NovaObject, RegisterValueKind},
-    register::{Register, RegisterID},
+    register::Register,
 };
+
+#[cfg(feature = "secure")]
+use crate::register::RegisterID;
 
 use super::{
     memory_management::load_object_from_memory, program_management::emit_error_with_message,
 };
 
+#[inline(always)]
 pub fn move_register(registers: &mut [Register], instruction: Instruction) {
     let destination = instruction_decoder::decode_destination_register(instruction);
     let source = instruction_decoder::decode_source_register_1(instruction);
@@ -19,10 +23,12 @@ pub fn move_register(registers: &mut [Register], instruction: Instruction) {
 
 /// Clear the temporary value registers
 #[inline(always)]
-pub fn clear_registers(registers: &mut [Register]) {
-    for index in 1..RegisterID::R15 as usize {
+pub fn clear_registers(_registers: &mut [Register]) {
+    /* for index in 1..RegisterID::R15 as usize {
         registers[index] = Register::empty();
-    }
+    } */
+    #[cfg(feature = "secure")]
+   _registers[0..RegisterID::R15 as usize].fill(Default::default())
 }
 
 #[inline(always)]

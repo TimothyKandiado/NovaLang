@@ -18,6 +18,7 @@ lto = true
 [features]
 default = []
 debug = []
+secure = []
 verbose = ["debug", "dbg_memory", "dbg_code"]
 dbg_memory = ["dbg_local", "dbg_global"]
 dbg_local = ["debug"]

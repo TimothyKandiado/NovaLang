@@ -81,15 +81,18 @@ impl Default for VirtualMachine {
 
 impl VirtualMachine {
     pub fn new() -> Self {
+        let mut frames = Vec::with_capacity(32);
+        frames.push(Frame::main());
+
         Self {
             instructions: Vec::new(),
             immutables: Vec::new(),
             registers: [Register::default(); RegisterID::RMax as usize + 1],
             running: false,
-            memory: Vec::new(),
-            frames: vec![Frame::main()],
-            locals: Vec::new(),
-            globals: Vec::new(),
+            memory: Vec::with_capacity(32),
+            frames,
+            locals: Vec::with_capacity(32),
+            globals: Vec::with_capacity(32),
             identifiers: MappedMemory::default(),
             mem_cache: MemoryCache::default(),
             line_definitions: Vec::new(),
@@ -205,7 +208,7 @@ impl VirtualMachine {
         let frames = self.frames.iter().as_slice()[1..].iter().rev();
 
         for frame in frames {
-            let program_counter = frame.return_address as usize - 2; // I don't understand why 2, but it works
+            let program_counter = frame.registers[RegisterID::RRTN as usize].value as usize - 2; // I don't understand why 2, but it works
 
             let line_definition = self.get_source_line_definition(program_counter);
 

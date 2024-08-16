@@ -6,7 +6,6 @@ use crate::{
 };
 
 use super::{
-    array_copy,
     memory_management::{
         allocate_local_variables, deallocate_local_variables, store_object_in_memory,
     },
@@ -36,20 +35,20 @@ pub fn get_next_instruction(
 
 #[inline(always)]
 pub fn new_frame(
-    registers: &mut [Register],
+    registers: &mut [Register; RegisterID::RMax as usize + 1],
     frames: &mut Vec<Frame>,
     locals: &mut Vec<Register>,
     num_locals: Instruction,
-) -> Frame {
-    let return_address = unsafe { registers.get_unchecked(RegisterID::RPC as usize).value };
-    let local_offset = unsafe { registers.get_unchecked(RegisterID::RLO as usize).value };
+) {
+    //let return_address = unsafe { registers.get_unchecked(RegisterID::RPC as usize).value };
+    //let local_offset = unsafe { registers.get_unchecked(RegisterID::RLO as usize).value };
 
-    let mut old_registers = [Register::empty(); RegisterID::RMax as usize + 1];
-    old_registers.copy_from_slice(registers);
+    let old_registers: [Register; RegisterID::RMax as usize + 1] = *registers;
 
-    let frame = Frame::new(old_registers, return_address, local_offset, false);
+    let frame = Frame::new(old_registers,  false);
 
-    frames.push(frame.clone());
+    frames.push(frame);
+
     clear_registers(registers);
 
     set_local_offset(registers, locals);
@@ -61,13 +60,11 @@ pub fn new_frame(
         register.kind = RegisterValueKind::MemAddress;
         register.value = num_locals as u64;
     }
-
-    frame
 }
 
 #[inline(always)]
 pub fn drop_frame(
-    registers: &mut [Register],
+    registers: &mut [Register; RegisterID::RMax as usize + 1],
     frames: &mut Vec<Frame>,
     locals: &mut Vec<Register>,
     running_state: &mut bool,
@@ -85,7 +82,8 @@ pub fn drop_frame(
             return;
         }
 
-        array_copy(&frame.registers, 0, registers, 0, registers.len());
+        registers.copy_from_slice(&frame.registers);
+        //array_copy(&frame.registers, 0, registers, 0, registers.len());
 
         unsafe {
             let register = registers.get_unchecked_mut(RegisterID::RRTN as usize);

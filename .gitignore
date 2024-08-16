@@ -1,3 +1,7 @@
 /target
 *.nvc
+*.data
+perf.data
+perf.data.old
+*.svg
 

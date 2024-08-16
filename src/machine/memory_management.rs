@@ -64,8 +64,7 @@ pub fn load_global_value(
 
 #[inline(always)]
 pub fn allocate_local_variables(locals: &mut Vec<Register>, number_of_locals: Instruction) {
-    let mut local_space = vec![Register::default(); number_of_locals as usize];
-    locals.append(&mut local_space)
+    locals.resize(locals.len() + number_of_locals as usize, Default::default())
 }
 
 #[inline(always)]
