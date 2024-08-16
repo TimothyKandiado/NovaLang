@@ -6,9 +6,9 @@ use nova_tw::language::{
 
 use crate::{
     bytecode::OpCode,
-    instruction::{Instruction, InstructionBuilder, instruction_decoder},
+    instruction::{instruction_decoder, Instruction, InstructionBuilder},
     object::{NovaFunction, NovaObject},
-    program::Program,
+    program::{LineDefinition, Program},
 };
 
 pub struct BytecodeGenerator {
@@ -53,6 +53,21 @@ impl BytecodeGenerator {
 
     fn execute(&mut self, statement: &Statement) {
         statement.accept(self);
+    }
+
+    fn reference_source_lines_and_filename(&mut self, instruction_number: usize, source_line: usize, filename: String) {
+        let line_reference = self.program.line_definitions.iter().find(|line| line.source_line == source_line);
+        if line_reference.is_some() {
+            return;
+        }
+        
+        let line_definition = LineDefinition {
+            last_instruction: instruction_number,
+            source_line,
+            source_file: filename
+        };
+
+        self.program.line_definitions.push(line_definition)
     }
 
     fn evaluate(&mut self, expression: &Expression) {
@@ -441,6 +456,7 @@ impl StatementVisitor for BytecodeGenerator {
         self.check_call_and_load_return();
 
         let source = self.temp_stack.len() as Instruction - 1;
+        
         self.temp_stack.pop();
 
         self.add_instruction(InstructionBuilder::new_jump_false_instruction(source));
@@ -465,6 +481,10 @@ impl StatementVisitor for BytecodeGenerator {
 
         self.program.instructions[jump_then_branch as usize] =
             InstructionBuilder::new_jump_instruction(offset + jump_correction, true);
+
+        let source_line = if_statement.line;
+        let source_file = if_statement.filename.clone();
+        self.reference_source_lines_and_filename(self.program.instructions.len() - 1, source_line, source_file);
     }
 
     fn visit_while(&mut self, while_loop: &nova_tw::language::WhileLoop) -> Self::Output {
@@ -489,6 +509,10 @@ impl StatementVisitor for BytecodeGenerator {
         let jump_forward_offset = current_index - jump_loop_index;
         self.program.instructions[jump_loop_index as usize] =
             InstructionBuilder::new_jump_instruction(jump_forward_offset + 1, true);
+
+        let source_line = while_loop.line;
+        let source_file = while_loop.filename.clone();
+        self.reference_source_lines_and_filename(self.program.instructions.len() - 1, source_line, source_file);
     }
 
     fn visit_block(&mut self, block: &nova_tw::language::Block) -> Self::Output {
@@ -516,6 +540,10 @@ impl StatementVisitor for BytecodeGenerator {
 
         self.scope -= 1;
         self.local_variable_count -= num_locals as u32;
+
+        let source_line = block.line;
+        let source_file = block.filename.clone();
+        self.reference_source_lines_and_filename(self.program.instructions.len() - 1, source_line, source_file);
     }
 
     fn visit_function_statement(
@@ -588,23 +616,32 @@ impl StatementVisitor for BytecodeGenerator {
         self.program.instructions[jump_index as usize] =
             InstructionBuilder::new_jump_instruction(current - jump_index, true);
         // restore temp_stack to the way it was before function call.
+
+        let source_line = function_statement.line;
+        let source_file = function_statement.filename.clone();
+        self.reference_source_lines_and_filename(self.program.instructions.len() - 1, source_line, source_file);
     }
 
     fn visit_return(
         &mut self,
-        return_statement: &Option<nova_tw::language::Expression>,
+        return_statement: &Option<(nova_tw::language::Expression, usize, String)>,
     ) -> Self::Output {
         if let Some(value) = return_statement {
-            self.evaluate(value);
+            let expression = &value.0;
+            self.evaluate(expression);
             self.check_call_and_load_return();
 
             let source = self.temp_stack.len() as Instruction - 1;
             self.add_instruction(InstructionBuilder::new_return_value(source));
             self.temp_stack.pop();
+            let source_line = value.1;
+            let source_file = value.2.clone();
+            self.reference_source_lines_and_filename(self.program.instructions.len() - 1, source_line, source_file);
             return;
         }
 
         self.add_instruction(InstructionBuilder::new_return_none_instruction());
+        
     }
 
     fn visit_var_declaration(
@@ -639,6 +676,9 @@ impl StatementVisitor for BytecodeGenerator {
                         source, name_index,
                     ));
             }
+            let source_line = var_declaration.line;
+            let source_file = var_declaration.filename.clone();
+            self.reference_source_lines_and_filename(self.program.instructions.len() - 1, source_line, source_file);
             return;
         }
 
@@ -654,9 +694,13 @@ impl StatementVisitor for BytecodeGenerator {
 
     fn visit_expression_statement(
         &mut self,
-        expression_statement: &nova_tw::language::Expression,
+        expression_statement: &(nova_tw::language::Expression, usize, String),
     ) -> Self::Output {
-        self.evaluate(expression_statement);
+        self.evaluate(&expression_statement.0);
+
+        let source_line = expression_statement.1;
+        let source_file = expression_statement.2.clone();
+        self.reference_source_lines_and_filename(self.program.instructions.len() - 1, source_line, source_file);
     }
 
     fn visit_class_statement(

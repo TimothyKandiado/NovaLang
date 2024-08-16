@@ -2,7 +2,6 @@ use crate::{frame::Frame, instruction::Instruction, object::{NovaObject, Registe
 
 use super::{array_copy, memory_management::{allocate_local_variables, deallocate_local_variables, store_object_in_memory}, register_management::{clear_registers, get_register, load_memory_address_to_register}};
 
-
 #[inline(always)]
 pub fn peek_next_instruction(registers: &[Register], instructions: &[Instruction]) -> Instruction {
     unsafe {
@@ -87,22 +86,6 @@ pub fn set_local_offset(registers: &mut [Register], locals: &[Register]) {
 pub fn emit_error_with_message(registers: &mut [Register], memory: &mut Vec<NovaObject>, message: &str) {
     let address = store_object_in_memory(memory, NovaObject::String(Box::new(message.to_string())));
     load_memory_address_to_register(registers, RegisterID::RERR as Instruction, address);
-}
-
-#[inline(always)]
-pub fn print_error(registers: &[Register], memory: &[NovaObject]) {
-    let register = get_register(registers, RegisterID::RERR as Instruction);
-
-    if let RegisterValueKind::MemAddress = register.kind {
-        let address = register.value;
-        let object = &memory[address as usize];
-        eprint!("Error: ");
-
-        if let NovaObject::String(string) = object {
-            eprint!("{}", string)
-        }
-        eprintln!();
-    }
 }
     
 #[inline(always)]

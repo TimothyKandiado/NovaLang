@@ -6,10 +6,11 @@ pub mod program_management;
 use std::ptr::copy_nonoverlapping;
 
 use memory_management::{allocate_global, create_global, set_global_value, store_object_in_memory};
-use program_management::{check_error, emit_error_with_message, get_next_instruction, print_error};
+use program_management::{check_error, emit_error_with_message, get_next_instruction};
+use register_management::get_register;
 
 use crate::{
-    bytecode::{OpCode,BYTECODE_LOOKUP_TABLE}, cache::MemoryCache, frame::Frame, instruction::{instruction_decoder, Instruction, InstructionBuilder}, object::{MappedMemory, NativeFunction, NovaCallable, NovaObject, RegisterValueKind}, program::Program, register::{Register, RegisterID}
+    bytecode::{OpCode,BYTECODE_LOOKUP_TABLE}, cache::MemoryCache, frame::Frame, instruction::{instruction_decoder, Instruction, InstructionBuilder}, object::{MappedMemory, NativeFunction, NovaCallable, NovaObject, RegisterValueKind}, program::{LineDefinition, Program}, register::{Register, RegisterID}
 };
 
 #[cfg(feature = "debug")]
@@ -61,6 +62,7 @@ pub struct VirtualMachine {
     globals: Vec<Register>,
     identifiers: MappedMemory,
     mem_cache: MemoryCache,
+    line_definitions: Vec<LineDefinition>
 }
 
 impl Default for VirtualMachine {
@@ -81,7 +83,8 @@ impl VirtualMachine {
             locals: Vec::new(),
             globals: Vec::new(),
             identifiers: MappedMemory::default(),
-            mem_cache: MemoryCache::default()
+            mem_cache: MemoryCache::default(),
+            line_definitions: Vec::new(),
         }
     }
 
@@ -111,6 +114,7 @@ impl VirtualMachine {
 
     pub fn load_program(&mut self, program: Program) {
         let immutable_offset = self.immutables.len() as Instruction;
+        let instruction_offset = self.instructions.len();
 
         for &instruction in &program.instructions {
             //self.instruction_count += 1;
@@ -126,11 +130,70 @@ impl VirtualMachine {
             }
             self.immutables.push(immutable.clone());
         }
+
+        for line_definition in &program.line_definitions {
+
+            let mut line_definition = line_definition.clone();
+            line_definition.last_instruction += instruction_offset;
+            self.line_definitions.push(line_definition)
+        }
     }
 
     #[inline(always)]
     fn clear_error(&mut self) {
         self.registers[RegisterID::RERR as usize] = Register::empty();
+    }
+
+    #[inline(always)]
+    fn print_error(&self) {
+        let register = get_register(&self.registers, RegisterID::RERR as Instruction);
+
+        if let RegisterValueKind::MemAddress = register.kind {
+            let address = register.value;
+            let object = &self.memory[address as usize];
+            eprint!("Error: ");
+
+            if let NovaObject::String(string) = object {
+                eprint!("'{}'", string)
+            }
+            eprintln!(" Most recent call first");
+        }
+
+        let program_counter = self.registers[RegisterID::RPC as usize].value as usize;
+
+        let line_definition = self.get_source_line_definition(program_counter);
+
+        if let Some(line_definition) = line_definition {
+            eprintln!("On line [{}] in file '{}'", line_definition.source_line, line_definition.source_file);
+        }
+
+        if self.frames.len() <= 1 {
+            return;
+        }
+
+        let frames = &self.frames.iter().as_slice()[1..];
+
+        for frame in frames {
+            let program_counter = frame.return_address as usize;
+
+            let line_definition = self.get_source_line_definition(program_counter);
+
+            if let Some(line_definition) = line_definition {
+                eprintln!("Called from line [{}] in file '{}'", line_definition.source_line, line_definition.source_file);
+            }
+        }
+    }
+
+    fn get_source_line_definition(&self, program_counter: usize) -> Option<&LineDefinition> {
+        let mut maximum_line_definition = self.line_definitions.get(0);
+
+        for line_definition in self.line_definitions.iter() {
+            if line_definition.last_instruction <= program_counter {
+                maximum_line_definition = Some(line_definition);
+            }
+        }
+
+        return maximum_line_definition;
     }
 
     pub fn start_vm(&mut self, offset: Instruction) -> u32 {
@@ -164,7 +227,7 @@ impl VirtualMachine {
             Self::execute_instruction(instruction, &mut virtual_machine_data);
 
             if check_error(virtual_machine_data.registers) {
-                print_error(virtual_machine_data.registers, virtual_machine_data.memory);
+                self.print_error();
                 self.clear_error();
                 return 1;
             }

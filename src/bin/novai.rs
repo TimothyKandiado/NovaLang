@@ -38,7 +38,7 @@ fn repl() {
             break;
         }
 
-        let program = compiler::compile(&input).unwrap();
+        let program = compiler::compile(&input, "").unwrap();
         let new_offset = program.instructions.len() as Instruction;
 
         interpreter.load_program(program);
@@ -62,7 +62,7 @@ fn run_file(path: &str) {
     interpreter.load_natives(natives);
     let offset = 0 as Instruction;
 
-    let program = compiler::compile(&code).unwrap();
+    let program = compiler::compile(&code, path).unwrap();
 
     interpreter.load_program(program);
     interpreter.start_vm(offset);

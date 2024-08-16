@@ -27,7 +27,7 @@ fn run_file(path: &str, _arguments: &[String]) {
 
     let code = result.unwrap();
 
-    let program = compiler::compile(&code).unwrap();
+    let program = compiler::compile(&code, path).unwrap();
 
     debug_code(&program);
     debug_immutables(&program);

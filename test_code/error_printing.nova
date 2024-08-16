@@ -1,0 +1,15 @@
+num1 := 8
+num2 := 9
+name := "Sanji Vinsmoke"
+
+sum := num1 + num2
+println("Sum = ", sum)
+
+throw_error()
+
+illegal_op := name * num1
+println(illegal_op)
+
+fn throw_error()
+    return "Word" * 99
+end
