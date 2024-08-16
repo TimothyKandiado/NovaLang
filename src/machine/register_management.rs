@@ -1,8 +1,15 @@
-use crate::{bytecode::OpCode, instruction::{instruction_decoder, Instruction}, object::{NovaObject, RegisterValueKind}, register::{Register, RegisterID}};
+use crate::{
+    bytecode::OpCode,
+    instruction::{instruction_decoder, Instruction},
+    object::{NovaObject, RegisterValueKind},
+    register::{Register, RegisterID},
+};
 
-use super::{memory_management::load_object_from_memory, program_management::emit_error_with_message};
+use super::{
+    memory_management::load_object_from_memory, program_management::emit_error_with_message,
+};
 
-pub fn move_register(registers: &mut [Register] , instruction: Instruction) {
+pub fn move_register(registers: &mut [Register], instruction: Instruction) {
     let destination = instruction_decoder::decode_destination_register(instruction);
     let source = instruction_decoder::decode_source_register_1(instruction);
 
@@ -12,14 +19,21 @@ pub fn move_register(registers: &mut [Register] , instruction: Instruction) {
 
 /// Clear the temporary value registers
 #[inline(always)]
-pub fn clear_registers(registers: &mut [Register],) {
+pub fn clear_registers(registers: &mut [Register]) {
     for index in 1..RegisterID::R15 as usize {
         registers[index] = Register::empty();
     }
 }
 
 #[inline(always)]
-pub fn compare_registers(registers: &mut [Register], memory: &mut Vec<NovaObject>, immutables: &[NovaObject], op: OpCode, first: Register, second: Register) -> bool {
+pub fn compare_registers(
+    registers: &mut [Register],
+    memory: &mut Vec<NovaObject>,
+    immutables: &[NovaObject],
+    op: OpCode,
+    first: Register,
+    second: Register,
+) -> bool {
     match op {
         OpCode::Less => {
             if first.kind.is_float64() && second.kind.is_float64() {
@@ -123,7 +137,6 @@ pub fn compare_registers(registers: &mut [Register], memory: &mut Vec<NovaObject
         }
 
         OpCode::Equal => {
-
             if first.kind.is_int64() && second.kind.is_float64() {
                 let first = first.value as i64;
                 let second = f64::from_bits(second.value);
@@ -135,7 +148,7 @@ pub fn compare_registers(registers: &mut [Register], memory: &mut Vec<NovaObject
                 let second = second.value as i64;
                 return first == (second as f64);
             }
-            
+
             if first.kind != second.kind {
                 return false;
             }
@@ -175,26 +188,26 @@ pub fn compare_registers(registers: &mut [Register], memory: &mut Vec<NovaObject
         }
 
         _ => {
-            emit_error_with_message(registers, memory, &format!(
-                "Undefined comparison operator {:#x}",
-                op as Instruction
-            ));
+            emit_error_with_message(
+                registers,
+                memory,
+                &format!("Undefined comparison operator {:#x}", op as Instruction),
+            );
         }
     }
 
-    emit_error_with_message(registers, memory, &format!(
-        "cannot compare {:?} to {:?}",
-        first.kind, second.kind
-    ));
+    emit_error_with_message(
+        registers,
+        memory,
+        &format!("cannot compare {:?} to {:?}", first.kind, second.kind),
+    );
 
     false
 }
 
 #[inline(always)]
 pub fn clear_register(registers: &mut [Register], register_id: Instruction) {
-    let register = unsafe {
-        registers.get_unchecked_mut(register_id as usize)
-    };
+    let register = unsafe { registers.get_unchecked_mut(register_id as usize) };
 
     register.kind = RegisterValueKind::None;
     register.value = 0;
@@ -208,7 +221,11 @@ pub fn get_register(registers: &[Register], register_id: Instruction) -> Registe
 }
 
 #[inline(always)]
-pub fn set_value_in_register(registers: &mut [Register], register_id: Instruction, value: Register) {
+pub fn set_value_in_register(
+    registers: &mut [Register],
+    register_id: Instruction,
+    value: Register,
+) {
     unsafe {
         let register = registers.get_unchecked_mut(register_id as usize);
         register.kind = value.kind;
@@ -231,13 +248,22 @@ pub fn load_i64_to_register(registers: &mut [Register], destination: Instruction
 }
 
 #[inline(always)]
-pub fn load_memory_address_to_register(registers: &mut [Register], destination: Instruction, address: Instruction) {
+pub fn load_memory_address_to_register(
+    registers: &mut [Register],
+    destination: Instruction,
+    address: Instruction,
+) {
     let value = Register::new(RegisterValueKind::MemAddress, address as u64);
     set_value_in_register(registers, destination, value);
 }
 
 #[inline(always)]
-pub fn package_register_into_nova_object(registers: &mut [Register], memory: &[NovaObject], immutables: &[NovaObject], register_address: Instruction) -> NovaObject {
+pub fn package_register_into_nova_object(
+    registers: &mut [Register],
+    memory: &[NovaObject],
+    immutables: &[NovaObject],
+    register_address: Instruction,
+) -> NovaObject {
     let register = get_register(registers, register_address);
 
     let value = match register.kind {
@@ -247,7 +273,7 @@ pub fn package_register_into_nova_object(registers: &mut [Register], memory: &[N
         RegisterValueKind::MemAddress => load_object_from_memory(memory, register.value).clone(),
         RegisterValueKind::ImmAddress => immutables[register.value as usize].clone(),
         RegisterValueKind::Bool => todo!(),
-        RegisterValueKind::NovaFunctionID(_) => todo!()
+        RegisterValueKind::NovaFunctionID(_) => todo!(),
     };
 
     value

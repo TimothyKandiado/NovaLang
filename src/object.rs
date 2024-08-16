@@ -43,15 +43,17 @@ impl NovaCallable<'_> {
         match self {
             NovaCallable::NovaFunction(function) => function.name.as_str(),
             NovaCallable::NativeFunction(function) => function.name.as_str(),
-            NovaCallable::None => "None"
+            NovaCallable::None => "None",
         }
     }
 
     pub fn as_object(&self) -> NovaObject {
         match self {
             NovaCallable::None => NovaObject::None,
-            NovaCallable::NativeFunction(function) => NovaObject::NativeFunction((*function).clone()),
-            NovaCallable::NovaFunction(function) => NovaObject::NovaFunction((*function).clone())
+            NovaCallable::NativeFunction(function) => {
+                NovaObject::NativeFunction((*function).clone())
+            }
+            NovaCallable::NovaFunction(function) => NovaObject::NovaFunction((*function).clone()),
         }
     }
 }
@@ -66,14 +68,19 @@ impl NovaObject {
     }
 
     pub fn is_callable(&self) -> bool {
-        matches!(self, NovaObject::NovaFunction(_) | NovaObject::NativeFunction(_))
+        matches!(
+            self,
+            NovaObject::NovaFunction(_) | NovaObject::NativeFunction(_)
+        )
     }
 
     pub fn as_callable(&self) -> NovaCallable {
         match self {
             NovaObject::NovaFunction(nova_function) => NovaCallable::NovaFunction(nova_function),
-            NovaObject::NativeFunction(native_function) => NovaCallable::NativeFunction(native_function),
-            _ => NovaCallable::None
+            NovaObject::NativeFunction(native_function) => {
+                NovaCallable::NativeFunction(native_function)
+            }
+            _ => NovaCallable::None,
         }
     }
 }
@@ -92,13 +99,9 @@ impl Display for NovaObject {
                     nova_function.name, nova_function.arity
                 )
             }
-            
+
             NovaObject::NativeFunction(native_function) => {
-                write!(
-                    f,
-                    "function: {}",
-                    native_function.name
-                )
+                write!(f, "function: {}", native_function.name)
             }
         }
     }
@@ -119,7 +122,7 @@ pub enum RegisterValueKind {
     /// Index of object in immutables array
     ImmAddress,
 
-    NovaFunctionID(NovaFunctionID)
+    NovaFunctionID(NovaFunctionID),
 }
 
 impl RegisterValueKind {
@@ -151,34 +154,37 @@ impl RegisterValueKind {
 
 #[derive(Debug, Clone, Copy, PartialEq)]
 pub struct NovaFunctionID {
-    pub value: u32
+    pub value: u32,
 }
 
 impl NovaFunctionID {
-    pub fn from_nova_function(nova_function: &NovaFunction, name_address: Instruction) -> Option<Self>{
+    pub fn from_nova_function(
+        nova_function: &NovaFunction,
+        name_address: Instruction,
+    ) -> Option<Self> {
         let mut value = 0u32;
 
         if nova_function.number_of_locals > 32 {
-            return None
+            return None;
         }
 
         let shifted = (nova_function.number_of_locals as u32) << 27;
         value += shifted;
 
         if nova_function.arity > 8 {
-            return None
+            return None;
         }
 
         let shifted = (nova_function.arity as u32) << 24;
         value += shifted;
 
-        let is_method = if nova_function.is_method {1u32} else {0u32};
+        let is_method = if nova_function.is_method { 1u32 } else { 0u32 };
         let shifted = is_method << 23;
 
         value += shifted;
 
         if name_address > 2u32.pow(20u32) {
-            return None
+            return None;
         }
 
         value += name_address;
@@ -201,7 +207,7 @@ impl NovaFunctionID {
             name_address,
             arity,
             number_of_locals,
-            is_method
+            is_method,
         }
     }
 }
@@ -210,7 +216,7 @@ pub struct NovaFunctionIDLabelled {
     pub name_address: u32,
     pub arity: u32,
     pub number_of_locals: u32,
-    pub is_method: bool
+    pub is_method: bool,
 }
 
 #[cfg(test)]
@@ -224,11 +230,12 @@ mod tests {
             arity: 4,
             address: 50,
             is_method: false,
-            number_of_locals: 20
+            number_of_locals: 20,
         };
 
         let name_address = 4444;
-        let nova_function_id = NovaFunctionID::from_nova_function(&novafunction, name_address).unwrap();
+        let nova_function_id =
+            NovaFunctionID::from_nova_function(&novafunction, name_address).unwrap();
         let labelled = nova_function_id.to_labelled();
 
         assert_eq!(novafunction.arity, labelled.arity);

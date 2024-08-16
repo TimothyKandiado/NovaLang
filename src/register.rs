@@ -84,7 +84,7 @@ impl Display for Register {
                 "ImmAddress", self.value, self.value
             ),
 
-            _ => todo!()
+            _ => todo!(),
         };
 
         write!(f, "{}", description)

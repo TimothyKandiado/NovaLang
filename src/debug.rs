@@ -1,25 +1,18 @@
 use crate::{
     bytecode::OpCode,
-    instruction::{Instruction, instruction_decoder},
+    instruction::{instruction_decoder, Instruction},
 };
 
-pub fn debug_instruction(
-    instructions: &[Instruction],
-    instruction_pointer: u64,
-) -> String {
+pub fn debug_instruction(instructions: &[Instruction], instruction_pointer: u64) -> String {
     let instruction = instructions[instruction_pointer as usize];
 
     let opcode = instruction_decoder::decode_opcode(instruction);
 
     //print!("(dbg[{}]) ", instruction_pointer);
     match opcode {
-        x if x == OpCode::NoInstruction as u32 => {
-            "NOINSTRUCTION".to_string()
-        }
+        x if x == OpCode::NoInstruction as u32 => "NOINSTRUCTION".to_string(),
         // System Interrupt
-        x if x == OpCode::Halt as u32 => {
-            "HALT".to_string()
-        }
+        x if x == OpCode::Halt as u32 => "HALT".to_string(),
 
         // Binary Operations
         x if x == OpCode::Add as u32 => binary_op("ADD", instruction),
@@ -35,14 +28,16 @@ pub fn debug_instruction(
         x if x == OpCode::LoadBool as u32 => load_bool_to_register(instruction),
 
         x if x == OpCode::LoadFloat32 as u32 => {
-            let destination_register = instruction_decoder::decode_destination_register(instruction);
+            let destination_register =
+                instruction_decoder::decode_destination_register(instruction);
             let number = instructions[instruction_pointer as usize + 1];
             let number = f32::from_bits(number);
             load_float32_to_register(destination_register, number)
         }
 
         x if x == OpCode::LoadFloat64 as u32 => {
-            let destination_register = instruction_decoder::decode_destination_register(instruction);
+            let destination_register =
+                instruction_decoder::decode_destination_register(instruction);
             let first_half = instructions[instruction_pointer as usize + 1];
             let second_half = instructions[instruction_pointer as usize + 2];
             let number = instruction_decoder::merge_u32s(first_half, second_half);
@@ -51,14 +46,16 @@ pub fn debug_instruction(
         }
 
         x if x == OpCode::LoadInt32 as u32 => {
-            let destination_register = instruction_decoder::decode_destination_register(instruction);
+            let destination_register =
+                instruction_decoder::decode_destination_register(instruction);
             let number = instructions[instruction_pointer as usize + 1];
             let number = number as i32;
             format!("LOADINT32 {} {}", destination_register, number)
         }
 
         x if x == OpCode::LoadInt64 as u32 => {
-            let destination_register = instruction_decoder::decode_destination_register(instruction);
+            let destination_register =
+                instruction_decoder::decode_destination_register(instruction);
             let first_half = instructions[instruction_pointer as usize + 1];
             let second_half = instructions[instruction_pointer as usize + 2];
             let number = instruction_decoder::merge_u32s(first_half, second_half);
@@ -160,9 +157,7 @@ pub fn debug_instruction(
             )
         }
 
-        x if x == OpCode::NewFrame as u32 => {
-            "NEWFRAME".to_string()
-        }
+        x if x == OpCode::NewFrame as u32 => "NEWFRAME".to_string(),
 
         x if x == OpCode::Invoke as u32 => {
             let parameter_start = instruction_decoder::decode_destination_register(instruction);
@@ -175,9 +170,7 @@ pub fn debug_instruction(
             )
         }
 
-        x if x == OpCode::ReturnNone as u32 => {
-            "RETURN_NONE".to_string()
-        }
+        x if x == OpCode::ReturnNone as u32 => "RETURN_NONE".to_string(),
 
         x if x == OpCode::ReturnVal as u32 => {
             let source = instruction_decoder::decode_source_register_1(instruction);

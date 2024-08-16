@@ -1,10 +1,7 @@
 use std::{env, fs};
 
 use nova::{
-    bytecode::OpCode,
-    compiler,
-    debug::debug_instruction,
-    instruction::instruction_decoder,
+    bytecode::OpCode, compiler, debug::debug_instruction, instruction::instruction_decoder,
     program::Program,
 };
 
@@ -45,14 +42,11 @@ fn debug_code(program: &Program) {
         let code = instruction_decoder::decode_opcode(program.instructions[index]);
         if code == OpCode::LoadFloat32 as u32 {
             index += 1;
-        }
-        else if code == OpCode::LoadFloat64 as u32 {
+        } else if code == OpCode::LoadFloat64 as u32 {
             index += 2;
-        }
-        else if code == OpCode::LoadInt32 as u32 {
+        } else if code == OpCode::LoadInt32 as u32 {
             index += 1;
-        }
-        else if code == OpCode::LoadInt64 as u32 {
+        } else if code == OpCode::LoadInt64 as u32 {
             index += 2;
         }
 

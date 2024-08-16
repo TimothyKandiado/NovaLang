@@ -1,5 +1,8 @@
-use crate::{instruction::Instruction, object::{MappedMemory, NovaObject}, register::Register};
-
+use crate::{
+    instruction::Instruction,
+    object::{MappedMemory, NovaObject},
+    register::Register,
+};
 
 /// load an object from memory given the memory location
 #[inline(always)]
@@ -40,13 +43,17 @@ pub fn set_global_value(globals: &mut [Register], address: Instruction, new_valu
         global.kind = new_value.kind;
         global.value = new_value.value;
     }
-    
 }
 
 /// load value from a specified global address
 #[inline(always)]
-pub fn load_global_value(registers: &mut [Register], globals: &mut [Register], destination: Instruction, global_address: Instruction) {
-    let value = unsafe {*globals.get_unchecked(global_address as usize)};
+pub fn load_global_value(
+    registers: &mut [Register],
+    globals: &mut [Register],
+    destination: Instruction,
+    global_address: Instruction,
+) {
+    let value = unsafe { *globals.get_unchecked(global_address as usize) };
     unsafe {
         let register = registers.get_unchecked_mut(destination as usize);
 
@@ -65,5 +72,5 @@ pub fn allocate_local_variables(locals: &mut Vec<Register>, number_of_locals: In
 pub fn deallocate_local_variables(locals: &mut Vec<Register>, number_of_locals: Instruction) {
     let number = number_of_locals as usize;
 
-    locals.drain(locals.len() - number ..);
+    locals.drain(locals.len() - number..);
 }

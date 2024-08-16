@@ -259,7 +259,7 @@ pub mod instruction_decoder {
         let second_half = second_half as u64;
 
         let first_half = first_half << 32;
-        
+
         first_half + second_half
     }
 
@@ -302,7 +302,7 @@ pub mod instruction_decoder {
 
 #[cfg(test)]
 mod instruction_builder_tests {
-    use super::{Instruction, InstructionBuilder, instruction_decoder};
+    use super::{instruction_decoder, Instruction, InstructionBuilder};
     use crate::bytecode::OpCode;
 
     #[test]

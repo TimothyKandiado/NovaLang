@@ -103,7 +103,10 @@ fn write_immutables(program: &Program, buffer: &mut Vec<u8>) -> Result<(), Box<d
                 buffer.write_all(bytes)?;
             }
 
-            NovaObject::None | NovaObject::Float64(_)| NovaObject::NativeFunction(_) | NovaObject::Int64(_) => {
+            NovaObject::None
+            | NovaObject::Float64(_)
+            | NovaObject::NativeFunction(_)
+            | NovaObject::Int64(_) => {
                 continue;
             }
         }

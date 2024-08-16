@@ -6,7 +6,7 @@ use rustc_hash::FxHashMap;
 pub struct MemoryCache {
     /// The key is the id for the specific cache, the value is the Memory address for the id
     map: FxHashMap<usize, usize>,
-    id_queue: VecDeque<usize>
+    id_queue: VecDeque<usize>,
 }
 
 impl MemoryCache {
@@ -14,7 +14,7 @@ impl MemoryCache {
     pub fn new(capacity: usize) -> Self {
         Self {
             map: FxHashMap::default(),
-            id_queue: VecDeque::with_capacity(capacity)
+            id_queue: VecDeque::with_capacity(capacity),
         }
     }
 

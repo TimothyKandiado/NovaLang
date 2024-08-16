@@ -137,7 +137,7 @@ pub const BYTECODE_LOOKUP_TABLE: [OpCode; 44] = [
     OpCode::ReturnNone,
     OpCode::ReturnVal,
     OpCode::Halt,
-]; 
+];
 
 impl OpCode {
     #[inline(always)]

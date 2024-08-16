@@ -55,16 +55,25 @@ impl BytecodeGenerator {
         statement.accept(self);
     }
 
-    fn reference_source_lines_and_filename(&mut self, instruction_number: usize, source_line: usize, filename: String) {
-        let line_reference = self.program.line_definitions.iter().find(|line| line.source_line == source_line);
+    fn reference_source_lines_and_filename(
+        &mut self,
+        instruction_number: usize,
+        source_line: usize,
+        filename: String,
+    ) {
+        let line_reference = self
+            .program
+            .line_definitions
+            .iter()
+            .find(|line| line.source_line == source_line);
         if line_reference.is_some() {
             return;
         }
-        
+
         let line_definition = LineDefinition {
             last_instruction: instruction_number,
             source_line,
-            source_file: filename
+            source_file: filename,
         };
 
         self.program.line_definitions.push(line_definition)
@@ -135,7 +144,12 @@ impl BytecodeGenerator {
 
     fn add_integer(&mut self, number: i64, register_index: Instruction) {
         if number > i32::MAX as i64 {
-            self.add_instruction(InstructionBuilder::new().add_opcode(OpCode::LoadInt64).add_destination_register(register_index).build());
+            self.add_instruction(
+                InstructionBuilder::new()
+                    .add_opcode(OpCode::LoadInt64)
+                    .add_destination_register(register_index)
+                    .build(),
+            );
             let number_bits = number as u64;
             let (first, second) = instruction_decoder::split_u64(number_bits);
             self.add_instruction(first);
@@ -144,7 +158,12 @@ impl BytecodeGenerator {
         }
 
         let number = number as i32;
-        self.add_instruction(InstructionBuilder::new().add_opcode(OpCode::LoadInt32).add_destination_register(register_index).build());
+        self.add_instruction(
+            InstructionBuilder::new()
+                .add_opcode(OpCode::LoadInt32)
+                .add_destination_register(register_index)
+                .build(),
+        );
         self.program.instructions.push(number as u32);
     }
 
@@ -157,13 +176,18 @@ impl BytecodeGenerator {
         }
         // check if number can be stored as a float32
         if number >= f32::MAX as f64 {
-            self.add_instruction(InstructionBuilder::new().add_opcode(OpCode::LoadFloat64).add_destination_register(register_index).build());
+            self.add_instruction(
+                InstructionBuilder::new()
+                    .add_opcode(OpCode::LoadFloat64)
+                    .add_destination_register(register_index)
+                    .build(),
+            );
             let number_bits = number.to_bits();
             let (first, second) = instruction_decoder::split_u64(number_bits);
             self.add_instruction(first);
             self.add_instruction(second);
             return;
-        } 
+        }
 
         let number = number as f32;
         self.program
@@ -373,7 +397,11 @@ impl ExpressionVisitor for BytecodeGenerator {
             self.temp_stack.pop();
             let invoke_register = self.temp_stack.len() as Instruction;
 
-            self.add_instruction(InstructionBuilder::new_invoke_instruction(parameter_start, parameters, invoke_register));
+            self.add_instruction(InstructionBuilder::new_invoke_instruction(
+                parameter_start,
+                parameters,
+                invoke_register,
+            ));
 
             for _ in &function.arguments {
                 self.temp_stack.pop();
@@ -456,7 +484,7 @@ impl StatementVisitor for BytecodeGenerator {
         self.check_call_and_load_return();
 
         let source = self.temp_stack.len() as Instruction - 1;
-        
+
         self.temp_stack.pop();
 
         self.add_instruction(InstructionBuilder::new_jump_false_instruction(source));
@@ -484,7 +512,11 @@ impl StatementVisitor for BytecodeGenerator {
 
         let source_line = if_statement.line;
         let source_file = if_statement.filename.clone();
-        self.reference_source_lines_and_filename(self.program.instructions.len() - 1, source_line, source_file);
+        self.reference_source_lines_and_filename(
+            self.program.instructions.len() - 1,
+            source_line,
+            source_file,
+        );
     }
 
     fn visit_while(&mut self, while_loop: &nova_tw::language::WhileLoop) -> Self::Output {
@@ -512,7 +544,11 @@ impl StatementVisitor for BytecodeGenerator {
 
         let source_line = while_loop.line;
         let source_file = while_loop.filename.clone();
-        self.reference_source_lines_and_filename(self.program.instructions.len() - 1, source_line, source_file);
+        self.reference_source_lines_and_filename(
+            self.program.instructions.len() - 1,
+            source_line,
+            source_file,
+        );
     }
 
     fn visit_block(&mut self, block: &nova_tw::language::Block) -> Self::Output {
@@ -543,7 +579,11 @@ impl StatementVisitor for BytecodeGenerator {
 
         let source_line = block.line;
         let source_file = block.filename.clone();
-        self.reference_source_lines_and_filename(self.program.instructions.len() - 1, source_line, source_file);
+        self.reference_source_lines_and_filename(
+            self.program.instructions.len() - 1,
+            source_line,
+            source_file,
+        );
     }
 
     fn visit_function_statement(
@@ -619,7 +659,11 @@ impl StatementVisitor for BytecodeGenerator {
 
         let source_line = function_statement.line;
         let source_file = function_statement.filename.clone();
-        self.reference_source_lines_and_filename(self.program.instructions.len() - 1, source_line, source_file);
+        self.reference_source_lines_and_filename(
+            self.program.instructions.len() - 1,
+            source_line,
+            source_file,
+        );
     }
 
     fn visit_return(
@@ -636,12 +680,15 @@ impl StatementVisitor for BytecodeGenerator {
             self.temp_stack.pop();
             let source_line = value.1;
             let source_file = value.2.clone();
-            self.reference_source_lines_and_filename(self.program.instructions.len() - 1, source_line, source_file);
+            self.reference_source_lines_and_filename(
+                self.program.instructions.len() - 1,
+                source_line,
+                source_file,
+            );
             return;
         }
 
         self.add_instruction(InstructionBuilder::new_return_none_instruction());
-        
     }
 
     fn visit_var_declaration(
@@ -678,7 +725,11 @@ impl StatementVisitor for BytecodeGenerator {
             }
             let source_line = var_declaration.line;
             let source_file = var_declaration.filename.clone();
-            self.reference_source_lines_and_filename(self.program.instructions.len() - 1, source_line, source_file);
+            self.reference_source_lines_and_filename(
+                self.program.instructions.len() - 1,
+                source_line,
+                source_file,
+            );
             return;
         }
 
@@ -700,7 +751,11 @@ impl StatementVisitor for BytecodeGenerator {
 
         let source_line = expression_statement.1;
         let source_file = expression_statement.2.clone();
-        self.reference_source_lines_and_filename(self.program.instructions.len() - 1, source_line, source_file);
+        self.reference_source_lines_and_filename(
+            self.program.instructions.len() - 1,
+            source_line,
+            source_file,
+        );
     }
 
     fn visit_class_statement(

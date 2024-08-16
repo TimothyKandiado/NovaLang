@@ -1,7 +1,7 @@
 pub mod bytecode_execution;
 pub mod memory_management;
-pub mod register_management;
 pub mod program_management;
+pub mod register_management;
 
 use std::ptr::copy_nonoverlapping;
 
@@ -10,7 +10,15 @@ use program_management::{check_error, emit_error_with_message, get_next_instruct
 use register_management::get_register;
 
 use crate::{
-    bytecode::{OpCode,BYTECODE_LOOKUP_TABLE}, cache::MemoryCache, frame::Frame, instruction::{instruction_decoder, Instruction, InstructionBuilder}, object::{MappedMemory, NativeFunction, NovaCallable, NovaObject, RegisterValueKind}, program::{LineDefinition, Program}, register::{Register, RegisterID}
+    bytecode::{OpCode, BYTECODE_LOOKUP_TABLE},
+    cache::MemoryCache,
+    frame::Frame,
+    instruction::{instruction_decoder, Instruction, InstructionBuilder},
+    object::{
+        MappedMemory, NativeFunction, NovaCallable, NovaFunctionID, NovaObject, RegisterValueKind,
+    },
+    program::{LineDefinition, Program},
+    register::{Register, RegisterID},
 };
 
 #[cfg(feature = "debug")]
@@ -62,7 +70,7 @@ pub struct VirtualMachine {
     globals: Vec<Register>,
     identifiers: MappedMemory,
     mem_cache: MemoryCache,
-    line_definitions: Vec<LineDefinition>
+    line_definitions: Vec<LineDefinition>,
 }
 
 impl Default for VirtualMachine {
@@ -95,7 +103,7 @@ impl VirtualMachine {
     }
 
     /// load a native function into virtual machine
-    /// the function name is stored in the identifiers map together with an address to a global location. 
+    /// the function name is stored in the identifiers map together with an address to a global location.
     /// the global location points to a memory address containing a NovaObject wrapping the NativeFunction
     #[inline(always)]
     fn load_callable(&mut self, callable: NovaCallable) {
@@ -104,7 +112,27 @@ impl VirtualMachine {
         create_global(&mut self.identifiers, name, global_location);
         let nova_object = callable.as_object();
         let memory_location = store_object_in_memory(&mut self.memory, nova_object);
-        let global_value = Register::new(RegisterValueKind::MemAddress, memory_location as u64);
+
+        let global_value = match callable {
+            NovaCallable::NovaFunction(nova_function) => {
+                let name_address = self.immutables.len() as u32 - 1;
+                let nova_function_id =
+                    NovaFunctionID::from_nova_function(nova_function, name_address);
+
+                if let Some(nova_function_id) = nova_function_id {
+                    let function_address = nova_function.address as u64;
+                    Register::new(
+                        RegisterValueKind::NovaFunctionID(nova_function_id),
+                        function_address,
+                    )
+                } else {
+                    Register::new(RegisterValueKind::MemAddress, memory_location as u64)
+                }
+            }
+
+            _ => Register::new(RegisterValueKind::MemAddress, memory_location as u64),
+        };
+
         set_global_value(&mut self.globals, global_location, global_value);
     }
 
@@ -128,11 +156,11 @@ impl VirtualMachine {
                 let callable = immutable.as_callable();
                 self.load_callable(callable);
             }
+
             self.immutables.push(immutable.clone());
         }
 
         for line_definition in &program.line_definitions {
-
             let mut line_definition = line_definition.clone();
             line_definition.last_instruction += instruction_offset;
             self.line_definitions.push(line_definition)
@@ -164,7 +192,10 @@ impl VirtualMachine {
         let line_definition = self.get_source_line_definition(program_counter);
 
         if let Some(line_definition) = line_definition {
-            eprintln!("On line [{}] in file '{}'", line_definition.source_line, line_definition.source_file);
+            eprintln!(
+                "On line [{}] in file '{}'",
+                line_definition.source_line, line_definition.source_file
+            );
         }
 
         if self.frames.len() <= 1 {
@@ -179,7 +210,10 @@ impl VirtualMachine {
             let line_definition = self.get_source_line_definition(program_counter);
 
             if let Some(line_definition) = line_definition {
-                eprintln!("Called from line [{}] in file '{}'", line_definition.source_line, line_definition.source_file);
+                eprintln!(
+                    "Called from line [{}] in file '{}'",
+                    line_definition.source_line, line_definition.source_file
+                );
             }
         }
     }
@@ -220,9 +254,12 @@ impl VirtualMachine {
 
         while *virtual_machine_data.running {
             #[cfg(feature = "debug")]
-            self.debug();
+            debug(&virtual_machine_data);
 
-            let instruction = get_next_instruction(virtual_machine_data.registers, virtual_machine_data.instructions);
+            let instruction = get_next_instruction(
+                virtual_machine_data.registers,
+                virtual_machine_data.instructions,
+            );
 
             Self::execute_instruction(instruction, &mut virtual_machine_data);
 
@@ -232,22 +269,21 @@ impl VirtualMachine {
                 return 1;
             }
         }
-        
+
         0
     }
 
     #[inline(always)]
-    fn execute_instruction(instruction: Instruction, virtual_machine_data: &mut VirtualMachineData) {
+    fn execute_instruction(
+        instruction: Instruction,
+        virtual_machine_data: &mut VirtualMachineData,
+    ) {
         let opcode = instruction_decoder::decode_opcode(instruction);
 
-        let opcode = unsafe {
-            *BYTECODE_LOOKUP_TABLE.get_unchecked(opcode as usize)
-        };
+        let opcode = unsafe { *BYTECODE_LOOKUP_TABLE.get_unchecked(opcode as usize) };
 
         match opcode {
-            
-            OpCode::NoInstruction => {
-            }
+            OpCode::NoInstruction => {}
             // System Interrupt
             OpCode::Halt => {
                 *virtual_machine_data.running = false;
@@ -328,7 +364,12 @@ impl VirtualMachine {
                 let destination = instruction_decoder::decode_destination_register(instruction);
                 let address = instruction_decoder::decode_immutable_address_small(instruction);
 
-                memory_management::load_global_value(virtual_machine_data.registers, virtual_machine_data.globals, destination, address);
+                memory_management::load_global_value(
+                    virtual_machine_data.registers,
+                    virtual_machine_data.globals,
+                    destination,
+                    address,
+                );
             }
 
             OpCode::AllocateLocal => {
@@ -373,30 +414,30 @@ impl VirtualMachine {
                 bytecode_execution::jump(instruction, virtual_machine_data);
             }
 
-            
             OpCode::Invoke => {
                 bytecode_execution::invoke(instruction, virtual_machine_data);
             }
-            
-            OpCode::ReturnNone => bytecode_execution::return_none(instruction, virtual_machine_data),
+
+            OpCode::ReturnNone => {
+                bytecode_execution::return_none(instruction, virtual_machine_data)
+            }
 
             OpCode::ReturnVal => bytecode_execution::return_val(instruction, virtual_machine_data),
 
-            OpCode::LoadReturn => bytecode_execution::load_return(instruction, virtual_machine_data),
+            OpCode::LoadReturn => {
+                bytecode_execution::load_return(instruction, virtual_machine_data)
+            }
 
             // IO
-            OpCode::Print => {
-                bytecode_execution::print(instruction, virtual_machine_data)
-            }
-            
+            OpCode::Print => bytecode_execution::print(instruction, virtual_machine_data),
 
-            _ => emit_error_with_message(virtual_machine_data.registers, virtual_machine_data.memory, &format!(
-                "Unsupported opcode instruction ({:?})",
-                opcode
-            )),
+            _ => emit_error_with_message(
+                virtual_machine_data.registers,
+                virtual_machine_data.memory,
+                &format!("Unsupported opcode instruction ({:?})", opcode),
+            ),
         }
     }
-
 }
 
 #[allow(dead_code)]
@@ -409,13 +450,93 @@ fn print_vec_of_registers(registers: &[Register]) {
 }
 
 #[inline(always)]
-fn array_copy<T>(source: &[T], source_index: usize, destination: &mut [T], destination_index: usize, length: usize) {
+fn array_copy<T>(
+    source: &[T],
+    source_index: usize,
+    destination: &mut [T],
+    destination_index: usize,
+    length: usize,
+) {
     unsafe {
         let src = source.as_ptr().offset(source_index as isize);
         let dest = destination.as_mut_ptr().offset(destination_index as isize);
 
         copy_nonoverlapping(src, dest, length);
     }
+}
+
+#[cfg(feature = "debug")]
+pub fn debug(vm: &VirtualMachineData) {
+    #[cfg(feature = "dbg_code")]
+    {
+        let current = vm.registers[RegisterID::RPC as usize].value;
+        println!(
+            "[{}]: {}",
+            current,
+            debug_instruction(
+                &vm.instructions,
+                vm.registers[RegisterID::RPC as usize].value,
+            )
+        );
+    }
+    #[cfg(feature = "verbose")]
+    print_register_values(vm);
+    #[cfg(feature = "dbg_global")]
+    print_globals(vm);
+    #[cfg(feature = "dbg_local")]
+    print_locals(vm);
+    #[cfg(feature = "dbg_global")]
+    print_identifiers(vm);
+    #[cfg(feature = "dbg_memory")]
+    print_memory(vm);
+    #[cfg(feature = "verbose")]
+    wait_for_input();
+}
+
+#[cfg(feature = "debug")]
+fn wait_for_input() {
+    use std::io;
+
+    let mut buffer = String::new();
+    let _ = io::stdin().read_line(&mut buffer);
+}
+
+#[cfg(feature = "verbose")]
+fn print_register_values(vm: &VirtualMachineData) {
+    println!("{:=^30}", "Registers");
+    for register_index in 0..RegisterID::RMax as usize + 1 {
+        let register = vm.registers[register_index];
+        println!("==> R{:<2}: {}", register_index, register);
+    }
+    println!("{:=^30}", "");
+}
+
+#[cfg(feature = "dbg_memory")]
+fn print_memory(vm: &VirtualMachineData) {
+    println!("{:=^30}", "Heap");
+    println!("==> {:?}", &vm.memory);
+    println!("{:=^30}", "");
+}
+
+#[cfg(feature = "dbg_global")]
+fn print_globals(vm: &VirtualMachineData) {
+    println!("{:=^30}", "Globals");
+    print_vec_of_registers(&vm.globals);
+    println!("{:=^30}", "");
+}
+
+#[cfg(feature = "dbg_local")]
+fn print_locals(vm: &VirtualMachineData) {
+    println!("{:=^30}", "Locals");
+    print_vec_of_registers(&vm.locals);
+    println!("{:=^30}", "");
+}
+
+#[cfg(feature = "dbg_global")]
+fn print_identifiers(vm: &VirtualMachineData) {
+    println!("{:=^30}", "Identifiers");
+    println!("==> {:?}", &vm.identifiers);
+    println!("{:=^30}", "");
 }
 
 #[cfg(test)]

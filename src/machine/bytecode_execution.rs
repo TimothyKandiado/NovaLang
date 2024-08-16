@@ -1,8 +1,26 @@
+use crate::{
+    bytecode::OpCode,
+    instruction::{instruction_decoder, Instruction},
+    object::{NovaCallable, NovaFunctionIDLabelled, NovaObject, RegisterValueKind},
+    register::{Register, RegisterID},
+};
 
-use crate::{bytecode::OpCode, instruction::{instruction_decoder, Instruction}, object::{NovaCallable, NovaFunctionIDLabelled, NovaObject, RegisterValueKind}, register::{Register, RegisterID}};
-
-use super::{array_copy, memory_management::{allocate_global, allocate_local_variables, create_global, load_global_value, load_object_from_memory, set_global_value, store_object_in_memory}, program_management::{check_error, drop_frame, emit_error_with_message, get_next_instruction, new_frame}, register_management::{clear_register, compare_registers, get_register, is_truthy, load_f64_to_register, load_i64_to_register, load_memory_address_to_register, package_register_into_nova_object, set_value_in_register}, VirtualMachineData};
-
+use super::{
+    array_copy,
+    memory_management::{
+        allocate_global, allocate_local_variables, create_global, load_global_value,
+        load_object_from_memory, set_global_value, store_object_in_memory,
+    },
+    program_management::{
+        check_error, drop_frame, emit_error_with_message, get_next_instruction, new_frame,
+    },
+    register_management::{
+        clear_register, compare_registers, get_register, is_truthy, load_f64_to_register,
+        load_i64_to_register, load_memory_address_to_register, package_register_into_nova_object,
+        set_value_in_register,
+    },
+    VirtualMachineData,
+};
 
 #[inline(always)]
 pub fn invoke(instruction: Instruction, virtual_machine_data: &mut VirtualMachineData) {
@@ -15,7 +33,13 @@ pub fn invoke(instruction: Instruction, virtual_machine_data: &mut VirtualMachin
 
     if let RegisterValueKind::NovaFunctionID(nova_function_id) = register.kind {
         let function_address = register.value;
-        invoke_nova_function_id_labelled(virtual_machine_data, nova_function_id.to_labelled(), function_address, argument_start, argument_number);
+        invoke_nova_function_id_labelled(
+            virtual_machine_data,
+            nova_function_id.to_labelled(),
+            function_address,
+            argument_start,
+            argument_number,
+        );
         return;
     }
 
@@ -25,15 +49,17 @@ pub fn invoke(instruction: Instruction, virtual_machine_data: &mut VirtualMachin
 
     if register.kind != RegisterValueKind::MemAddress {
         emit_error_with_message(*registers, *memory, "Function not found");
-        return
+        return;
     }
 
     let nova_object = load_object_from_memory(*memory, register.value);
 
     let callable = match nova_object {
         NovaObject::NovaFunction(nova_function) => NovaCallable::NovaFunction(nova_function),
-        NovaObject::NativeFunction(native_function) => NovaCallable::NativeFunction(native_function),
-        _ => NovaCallable::None
+        NovaObject::NativeFunction(native_function) => {
+            NovaCallable::NativeFunction(native_function)
+        }
+        _ => NovaCallable::None,
     };
 
     match callable {
@@ -42,22 +68,28 @@ pub fn invoke(instruction: Instruction, virtual_machine_data: &mut VirtualMachin
                 name_address: 0,
                 arity: function.arity,
                 is_method: function.is_method,
-                number_of_locals: function.number_of_locals
+                number_of_locals: function.number_of_locals,
             };
 
             let function_address = function.address;
-            invoke_nova_function_id_labelled(virtual_machine_data, nova_function_id, function_address as u64, argument_start, argument_number);
+            invoke_nova_function_id_labelled(
+                virtual_machine_data,
+                nova_function_id,
+                function_address as u64,
+                argument_start,
+                argument_number,
+            );
         }
 
         NovaCallable::NativeFunction(function) => {
-
             let mut source_index = argument_start;
             let source_end = argument_start + argument_number;
 
             let mut arguments = Vec::new();
 
             while source_index < source_end {
-                let object = package_register_into_nova_object(*registers, memory, immutables, source_index);
+                let object =
+                    package_register_into_nova_object(*registers, memory, immutables, source_index);
                 arguments.push(object);
                 source_index += 1;
             }
@@ -83,12 +115,17 @@ pub fn invoke(instruction: Instruction, virtual_machine_data: &mut VirtualMachin
                 }
 
                 NovaObject::None => {
-                    set_value_in_register(*registers, RegisterID::RRTN as Instruction, Register::empty());
+                    set_value_in_register(
+                        *registers,
+                        RegisterID::RRTN as Instruction,
+                        Register::empty(),
+                    );
                 }
 
                 _ => {
                     let memory_location = store_object_in_memory(*memory, result);
-                    let register = Register::new(RegisterValueKind::MemAddress, memory_location as u64);
+                    let register =
+                        Register::new(RegisterValueKind::MemAddress, memory_location as u64);
                     set_value_in_register(*registers, RegisterID::RRTN as Instruction, register);
                 }
             }
@@ -101,7 +138,13 @@ pub fn invoke(instruction: Instruction, virtual_machine_data: &mut VirtualMachin
 }
 
 #[inline(always)]
-fn invoke_nova_function_id_labelled(virtual_machine_data: &mut VirtualMachineData, nova_function_id: NovaFunctionIDLabelled, function_address: u64, argument_start: u32, argument_number: u32) {
+fn invoke_nova_function_id_labelled(
+    virtual_machine_data: &mut VirtualMachineData,
+    nova_function_id: NovaFunctionIDLabelled,
+    function_address: u64,
+    argument_start: u32,
+    argument_number: u32,
+) {
     let registers = &mut virtual_machine_data.registers;
     let memory = &mut virtual_machine_data.memory;
     let frames = &mut virtual_machine_data.frames;
@@ -110,10 +153,14 @@ fn invoke_nova_function_id_labelled(virtual_machine_data: &mut VirtualMachineDat
     let function = nova_function_id;
 
     if argument_number != function.arity {
-        emit_error_with_message(*registers, *memory, &format!(
-            "Not enough function arguments.\n{} are required\n{} were provided",
-            function.arity, argument_number
-        ));
+        emit_error_with_message(
+            *registers,
+            *memory,
+            &format!(
+                "Not enough function arguments.\n{} are required\n{} were provided",
+                function.arity, argument_number
+            ),
+        );
         return;
     }
 
@@ -125,13 +172,18 @@ fn invoke_nova_function_id_labelled(virtual_machine_data: &mut VirtualMachineDat
     let destination_index = 0;
     let length = source_end - source_index;
 
-    array_copy(&old_frame.registers, source_index, *registers, destination_index, length);
+    array_copy(
+        &old_frame.registers,
+        source_index,
+        *registers,
+        destination_index,
+        length,
+    );
 
     unsafe {
         registers.get_unchecked_mut(RegisterID::RPC as usize).value = function_address as u64;
     }
 }
-
 
 #[inline(always)]
 pub fn return_none(_: Instruction, virtual_machine_data: &mut VirtualMachineData) {
@@ -140,7 +192,11 @@ pub fn return_none(_: Instruction, virtual_machine_data: &mut VirtualMachineData
     let locals = &mut virtual_machine_data.locals;
     let running_state = &mut virtual_machine_data.running;
 
-    set_value_in_register(*registers, RegisterID::RRTN as Instruction, Register::empty());
+    set_value_in_register(
+        *registers,
+        RegisterID::RRTN as Instruction,
+        Register::empty(),
+    );
     drop_frame(*registers, *frames, *locals, *running_state);
 }
 
@@ -165,7 +221,7 @@ pub fn load_return(instruction: Instruction, virtual_machine_data: &mut VirtualM
 
     let destination = instruction_decoder::decode_destination_register(instruction);
 
-    let return_register = unsafe {*registers.get_unchecked(RegisterID::RRTN as usize)};
+    let return_register = unsafe { *registers.get_unchecked(RegisterID::RRTN as usize) };
     set_value_in_register(*registers, destination, return_register);
 }
 
@@ -204,7 +260,7 @@ pub fn print(instruction: Instruction, virtual_machine_data: &mut VirtualMachine
             print!("{}", immutable);
         }
 
-        RegisterValueKind::NovaFunctionID(_) => todo!()
+        RegisterValueKind::NovaFunctionID(_) => todo!(),
     }
     if newline == 1 {
         println!()
@@ -260,8 +316,7 @@ pub fn add(instruction: Instruction, virtual_machine_data: &mut VirtualMachineDa
         return;
     }
 
-    if let (RegisterValueKind::Int64, RegisterValueKind::Int64) =
-        (register_1.kind, register_2.kind)
+    if let (RegisterValueKind::Int64, RegisterValueKind::Int64) = (register_1.kind, register_2.kind)
     {
         let value_1 = register_1.value as i64;
         let value_2 = register_2.value as i64;
@@ -318,10 +373,11 @@ pub fn add(instruction: Instruction, virtual_machine_data: &mut VirtualMachineDa
             load_memory_address_to_register(*registers, destination_register, address);
             return;
         }
-        emit_error_with_message(*registers, *memory, &format!(
-            "cannot add {:?} to {:?}",
-            object1, register_2.kind
-        ));
+        emit_error_with_message(
+            *registers,
+            *memory,
+            &format!("cannot add {:?} to {:?}", object1, register_2.kind),
+        );
     }
 
     if let (RegisterValueKind::ImmAddress, RegisterValueKind::Float64) =
@@ -340,10 +396,11 @@ pub fn add(instruction: Instruction, virtual_machine_data: &mut VirtualMachineDa
             load_memory_address_to_register(*registers, destination_register, address);
             return;
         }
-        emit_error_with_message(*registers, *memory, &format!(
-            "cannot add {:?} to {:?}",
-            object1, register_2.kind
-        ));
+        emit_error_with_message(
+            *registers,
+            *memory,
+            &format!("cannot add {:?} to {:?}", object1, register_2.kind),
+        );
     }
 
     if let (RegisterValueKind::Float64, RegisterValueKind::MemAddress) =
@@ -362,10 +419,11 @@ pub fn add(instruction: Instruction, virtual_machine_data: &mut VirtualMachineDa
             load_memory_address_to_register(*registers, destination_register, address);
             return;
         }
-        emit_error_with_message(*registers, *memory, &format!(
-            "cannot add {:?} to {:?}",
-            register_1.kind, object2
-        ));
+        emit_error_with_message(
+            *registers,
+            *memory,
+            &format!("cannot add {:?} to {:?}", register_1.kind, object2),
+        );
     }
 
     if let (RegisterValueKind::Float64, RegisterValueKind::ImmAddress) =
@@ -384,16 +442,18 @@ pub fn add(instruction: Instruction, virtual_machine_data: &mut VirtualMachineDa
             load_memory_address_to_register(*registers, destination_register, address);
             return;
         }
-        emit_error_with_message(*registers, *memory, &format!(
-            "cannot add {:?} to {:?}",
-            register_1.kind, object2
-        ));
+        emit_error_with_message(
+            *registers,
+            *memory,
+            &format!("cannot add {:?} to {:?}", register_1.kind, object2),
+        );
     }
 
-    emit_error_with_message(*registers, *memory, &format!(
-        "cannot add {:?} to {:?}",
-        register_1.kind, register_2.kind
-    ))
+    emit_error_with_message(
+        *registers,
+        *memory,
+        &format!("cannot add {:?} to {:?}", register_1.kind, register_2.kind),
+    )
 }
 
 #[inline(always)]
@@ -422,8 +482,7 @@ pub fn sub(instruction: Instruction, virtual_machine_data: &mut VirtualMachineDa
         return;
     }
 
-    if let (RegisterValueKind::Int64, RegisterValueKind::Int64) =
-        (register_1.kind, register_2.kind)
+    if let (RegisterValueKind::Int64, RegisterValueKind::Int64) = (register_1.kind, register_2.kind)
     {
         let value_1 = register_1.value as i64;
         let value_2 = register_2.value as i64;
@@ -464,10 +523,14 @@ pub fn sub(instruction: Instruction, virtual_machine_data: &mut VirtualMachineDa
         return;
     }
 
-    emit_error_with_message(*registers, *memory, &format!(
-        "cannot subtract {:?} by {:?}",
-        register_1.kind, register_2.kind
-    ))
+    emit_error_with_message(
+        *registers,
+        *memory,
+        &format!(
+            "cannot subtract {:?} by {:?}",
+            register_1.kind, register_2.kind
+        ),
+    )
 }
 
 #[inline(always)]
@@ -496,8 +559,7 @@ pub fn mul(instruction: Instruction, virtual_machine_data: &mut VirtualMachineDa
         return;
     }
 
-    if let (RegisterValueKind::Int64, RegisterValueKind::Int64) =
-        (register_1.kind, register_2.kind)
+    if let (RegisterValueKind::Int64, RegisterValueKind::Int64) = (register_1.kind, register_2.kind)
     {
         let value_1 = register_1.value as i64;
         let value_2 = register_2.value as i64;
@@ -538,10 +600,14 @@ pub fn mul(instruction: Instruction, virtual_machine_data: &mut VirtualMachineDa
         return;
     }
 
-    emit_error_with_message(*registers, *memory, &format!(
-        "cannot multiply {:?} by {:?}",
-        register_1.kind, register_2.kind
-    ))
+    emit_error_with_message(
+        *registers,
+        *memory,
+        &format!(
+            "cannot multiply {:?} by {:?}",
+            register_1.kind, register_2.kind
+        ),
+    )
 }
 
 #[inline(always)]
@@ -570,8 +636,7 @@ pub fn div(instruction: Instruction, virtual_machine_data: &mut VirtualMachineDa
         return;
     }
 
-    if let (RegisterValueKind::Int64, RegisterValueKind::Int64) =
-        (register_1.kind, register_2.kind)
+    if let (RegisterValueKind::Int64, RegisterValueKind::Int64) = (register_1.kind, register_2.kind)
     {
         let value_1 = register_1.value as i64;
         let value_2 = register_2.value as i64;
@@ -583,7 +648,6 @@ pub fn div(instruction: Instruction, virtual_machine_data: &mut VirtualMachineDa
         set_value_in_register(*registers, destination_register, new_value);
         return;
     }
-
 
     if let (RegisterValueKind::Float64, RegisterValueKind::Int64) =
         (register_1.kind, register_2.kind)
@@ -613,10 +677,14 @@ pub fn div(instruction: Instruction, virtual_machine_data: &mut VirtualMachineDa
         return;
     }
 
-    emit_error_with_message(*registers, *memory, &format!(
-        "cannot divide {:?} by {:?}",
-        register_1.kind, register_2.kind
-    ))
+    emit_error_with_message(
+        *registers,
+        *memory,
+        &format!(
+            "cannot divide {:?} by {:?}",
+            register_1.kind, register_2.kind
+        ),
+    )
 }
 
 #[inline(always)]
@@ -645,8 +713,7 @@ pub fn pow(instruction: Instruction, virtual_machine_data: &mut VirtualMachineDa
         return;
     }
 
-    if let (RegisterValueKind::Int64, RegisterValueKind::Int64) =
-        (register_1.kind, register_2.kind)
+    if let (RegisterValueKind::Int64, RegisterValueKind::Int64) = (register_1.kind, register_2.kind)
     {
         let value_1 = register_1.value as i64;
         let value_2 = register_2.value as i64;
@@ -687,10 +754,14 @@ pub fn pow(instruction: Instruction, virtual_machine_data: &mut VirtualMachineDa
         return;
     }
 
-    emit_error_with_message(*registers, *memory, &format!(
-        "cannot calculate power of {:?} to {:?}",
-        register_1.kind, register_2.kind
-    ))
+    emit_error_with_message(
+        *registers,
+        *memory,
+        &format!(
+            "cannot calculate power of {:?} to {:?}",
+            register_1.kind, register_2.kind
+        ),
+    )
 }
 
 #[inline(always)]
@@ -719,10 +790,14 @@ pub fn modulus(instruction: Instruction, virtual_machine_data: &mut VirtualMachi
         return;
     }
 
-    emit_error_with_message(*registers, *memory, &format!(
-        "cannot find modulus {:?} by {:?}",
-        register_1.kind, register_2.kind
-    ))
+    emit_error_with_message(
+        *registers,
+        *memory,
+        &format!(
+            "cannot find modulus {:?} by {:?}",
+            register_1.kind, register_2.kind
+        ),
+    )
 }
 
 #[inline(always)]
@@ -740,7 +815,14 @@ pub fn less(instruction: Instruction, virtual_machine_data: &mut VirtualMachineD
     let register1 = get_register(*registers, source1);
     let register2 = get_register(*registers, source2);
 
-    let less = compare_registers(*registers, *memory, *immutables, OpCode::Less, register1, register2);
+    let less = compare_registers(
+        *registers,
+        *memory,
+        *immutables,
+        OpCode::Less,
+        register1,
+        register2,
+    );
     if check_error(*registers) {
         return;
     }
@@ -768,7 +850,14 @@ pub fn less_or_equal(instruction: Instruction, virtual_machine_data: &mut Virtua
     let register1 = get_register(*registers, source1);
     let register2 = get_register(*registers, source2);
 
-    let less = compare_registers(*registers, *memory, *immutables, OpCode::LessEqual, register1, register2);
+    let less = compare_registers(
+        *registers,
+        *memory,
+        *immutables,
+        OpCode::LessEqual,
+        register1,
+        register2,
+    );
     if check_error(*registers) {
         return;
     }
@@ -796,7 +885,14 @@ pub fn equal(instruction: Instruction, virtual_machine_data: &mut VirtualMachine
     let register1 = get_register(*registers, source1);
     let register2 = get_register(*registers, source2);
 
-    let equal = compare_registers(*registers, *memory, *immutables, OpCode::Equal, register1, register2);
+    let equal = compare_registers(
+        *registers,
+        *memory,
+        *immutables,
+        OpCode::Equal,
+        register1,
+        register2,
+    );
     if check_error(*registers) {
         return;
     }
@@ -854,7 +950,10 @@ pub fn jump(instruction: Instruction, virtual_machine_data: &mut VirtualMachineD
 }
 
 #[inline(always)]
-pub fn load_constant_to_register(instruction: Instruction, virtual_machine_data: &mut VirtualMachineData) {
+pub fn load_constant_to_register(
+    instruction: Instruction,
+    virtual_machine_data: &mut VirtualMachineData,
+) {
     let registers = &mut virtual_machine_data.registers;
 
     let destination_register = instruction_decoder::decode_destination_register(instruction);
@@ -869,10 +968,13 @@ pub fn load_constant_to_register(instruction: Instruction, virtual_machine_data:
 }
 
 #[inline(always)]
-pub fn load_float32_to_register(instruction: Instruction, virtual_machine_data: &mut VirtualMachineData) {
+pub fn load_float32_to_register(
+    instruction: Instruction,
+    virtual_machine_data: &mut VirtualMachineData,
+) {
     let registers = &mut virtual_machine_data.registers;
     let instructions = &mut virtual_machine_data.instructions;
-    
+
     let destination_register = instruction_decoder::decode_destination_register(instruction);
 
     let number = get_next_instruction(*registers, instructions);
@@ -881,7 +983,10 @@ pub fn load_float32_to_register(instruction: Instruction, virtual_machine_data: 
 }
 
 #[inline(always)]
-pub fn load_float64_to_register(instruction: Instruction, virtual_machine_data: &mut VirtualMachineData) {
+pub fn load_float64_to_register(
+    instruction: Instruction,
+    virtual_machine_data: &mut VirtualMachineData,
+) {
     let registers = &mut virtual_machine_data.registers;
     let instructions = &mut virtual_machine_data.instructions;
 
@@ -896,7 +1001,10 @@ pub fn load_float64_to_register(instruction: Instruction, virtual_machine_data: 
 }
 
 #[inline(always)]
-pub fn load_int32_to_register(instruction: Instruction, virtual_machine_data: &mut VirtualMachineData) {
+pub fn load_int32_to_register(
+    instruction: Instruction,
+    virtual_machine_data: &mut VirtualMachineData,
+) {
     let registers = &mut virtual_machine_data.registers;
     let instructions = &mut virtual_machine_data.instructions;
 
@@ -908,7 +1016,10 @@ pub fn load_int32_to_register(instruction: Instruction, virtual_machine_data: &m
 }
 
 #[inline(always)]
-pub fn load_int64_to_register(instruction: Instruction, virtual_machine_data: &mut VirtualMachineData) {
+pub fn load_int64_to_register(
+    instruction: Instruction,
+    virtual_machine_data: &mut VirtualMachineData,
+) {
     let registers = &mut virtual_machine_data.registers;
     let instructions = &mut virtual_machine_data.instructions;
 
@@ -922,7 +1033,10 @@ pub fn load_int64_to_register(instruction: Instruction, virtual_machine_data: &m
 }
 
 #[inline(always)]
-pub fn load_nil_to_register(instruction: Instruction, virtual_machine_data: &mut VirtualMachineData) {
+pub fn load_nil_to_register(
+    instruction: Instruction,
+    virtual_machine_data: &mut VirtualMachineData,
+) {
     let registers = &mut virtual_machine_data.registers;
 
     let destination = instruction_decoder::decode_destination_register(instruction);
@@ -931,9 +1045,12 @@ pub fn load_nil_to_register(instruction: Instruction, virtual_machine_data: &mut
 }
 
 #[inline(always)]
-pub fn load_bool_to_register(instruction: Instruction, virtual_machine_data: &mut VirtualMachineData) {
+pub fn load_bool_to_register(
+    instruction: Instruction,
+    virtual_machine_data: &mut VirtualMachineData,
+) {
     let registers = &mut virtual_machine_data.registers;
-    
+
     let destination = instruction_decoder::decode_destination_register(instruction);
     let boolean = instruction_decoder::decode_immutable_address_small(instruction);
     let register = Register::new(RegisterValueKind::Float64, boolean as u64);
@@ -942,11 +1059,14 @@ pub fn load_bool_to_register(instruction: Instruction, virtual_machine_data: &mu
 
 /// defines an empty global variable in the virtual machine
 #[inline(always)]
-pub fn define_global_indirect(instruction: Instruction, virtual_machine_data: &mut VirtualMachineData) {
+pub fn define_global_indirect(
+    instruction: Instruction,
+    virtual_machine_data: &mut VirtualMachineData,
+) {
     let immutables = &mut virtual_machine_data.immutables;
     let identifiers = &mut virtual_machine_data.identifiers;
     let globals = &mut virtual_machine_data.globals;
-    
+
     let index = instruction_decoder::decode_immutable_address_small(instruction);
     let immutable = immutables[index as usize].clone();
 
@@ -958,7 +1078,10 @@ pub fn define_global_indirect(instruction: Instruction, virtual_machine_data: &m
 
 /// store a value in a global location by first looking up name in the immutables array
 #[inline(always)]
-pub fn store_global_indirect(instruction: Instruction, virtual_machine_data: &mut VirtualMachineData) {
+pub fn store_global_indirect(
+    instruction: Instruction,
+    virtual_machine_data: &mut VirtualMachineData,
+) {
     let registers = &mut virtual_machine_data.registers;
     let immutables = &mut virtual_machine_data.immutables;
     let identifiers = &mut virtual_machine_data.identifiers;
@@ -977,32 +1100,41 @@ pub fn store_global_indirect(instruction: Instruction, virtual_machine_data: &mu
         return;
     }
 
-    let immutable = unsafe {immutables.get_unchecked(index as usize)};
+    let immutable = unsafe { immutables.get_unchecked(index as usize) };
 
     if let NovaObject::String(name) = immutable {
         let global_address = identifiers.get(name.as_str());
 
         if let Some(&address) = global_address {
-            
             mem_cache.add_cache(index as usize, address as usize);
             set_global_value(*globals, address, register);
-            
 
             return;
         }
 
-        emit_error_with_message(*registers, *memory, &format!("Cannot find global named: {}", name));
+        emit_error_with_message(
+            *registers,
+            *memory,
+            &format!("Cannot find global named: {}", name),
+        );
         clear_register(*registers, source);
         return;
     }
 
-    emit_error_with_message(*registers, *memory, &format!("Invalid global identifier: {:?}", immutable));
+    emit_error_with_message(
+        *registers,
+        *memory,
+        &format!("Invalid global identifier: {:?}", immutable),
+    );
     clear_register(*registers, source)
 }
 
 /// load a value from a global location into a register by first looking up its name in the immutables array
 #[inline(always)]
-pub fn load_global_indirect(instruction: Instruction, virtual_machine_data: &mut VirtualMachineData) {
+pub fn load_global_indirect(
+    instruction: Instruction,
+    virtual_machine_data: &mut VirtualMachineData,
+) {
     let registers = &mut virtual_machine_data.registers;
     let immutables = &mut virtual_machine_data.immutables;
     let identifiers = &mut virtual_machine_data.identifiers;
@@ -1018,7 +1150,7 @@ pub fn load_global_indirect(instruction: Instruction, virtual_machine_data: &mut
         return;
     }
 
-    let immutable = unsafe {immutables.get_unchecked(index as usize)};
+    let immutable = unsafe { immutables.get_unchecked(index as usize) };
 
     if let NovaObject::String(name) = immutable {
         let global_address = identifiers.get(name.as_str());
@@ -1030,11 +1162,19 @@ pub fn load_global_indirect(instruction: Instruction, virtual_machine_data: &mut
             return;
         }
 
-        emit_error_with_message(*registers, *memory, &format!("Cannot find global named: {}", name));
+        emit_error_with_message(
+            *registers,
+            *memory,
+            &format!("Cannot find global named: {}", name),
+        );
         return;
     }
 
-    emit_error_with_message(*registers, *memory, &format!("Invalid global identifier: {:?}", immutable));
+    emit_error_with_message(
+        *registers,
+        *memory,
+        &format!("Invalid global identifier: {:?}", immutable),
+    );
 }
 
 #[inline(always)]
@@ -1051,7 +1191,7 @@ pub fn deallocate_locals(instruction: Instruction, virtual_machine_data: &mut Vi
     // number of variables
     let number = instruction_decoder::decode_immutable_address_small(instruction) as usize;
 
-    locals.drain(locals.len() - number ..);
+    locals.drain(locals.len() - number..);
 }
 
 #[inline(always)]
@@ -1063,14 +1203,14 @@ pub fn store_local(instruction: Instruction, virtual_machine_data: &mut VirtualM
     let address = instruction_decoder::decode_immutable_address_small(instruction);
 
     let register = get_register(*registers, source);
-    let local_offset = unsafe {registers.get_unchecked(RegisterID::RLO as usize).value};
+    let local_offset = unsafe { registers.get_unchecked(RegisterID::RLO as usize).value };
     unsafe {
         let local = locals.get_unchecked_mut((address + local_offset as u32) as usize);
 
         local.value = register.value;
         local.kind = register.kind;
     }
-    
+
     clear_register(*registers, source);
 }
 
@@ -1086,81 +1226,6 @@ pub fn load_local(instruction: Instruction, virtual_machine_data: &mut VirtualMa
         let local_offset = get_register(*registers, RegisterID::RLO as u32).value;
         *locals.get_unchecked((address as u64 + local_offset) as usize)
     };
-    
+
     set_value_in_register(*registers, destination, register);
-}
-
-
-#[cfg(feature = "debug")]
-fn debug(&self) {
-    #[cfg(feature = "dbg_code")]
-    {
-        let current = self.registers[RegisterID::RPC as usize].value;
-        println!(
-            "[{}]: {}",
-            current,
-            debug_instruction(
-                &self.instructions,
-                self.registers[RegisterID::RPC as usize].value,
-            )
-        );
-    }
-    #[cfg(feature = "verbose")]
-    self.print_register_values();
-    #[cfg(feature = "dbg_global")]
-    self.print_globals();
-    #[cfg(feature = "dbg_local")]
-    self.print_locals();
-    #[cfg(feature = "dbg_global")]
-    self.print_identifiers();
-    #[cfg(feature = "dbg_memory")]
-    self.print_memory();
-    #[cfg(feature = "verbose")]
-    Self::wait_for_input();
-}
-
-#[cfg(feature = "debug")]
-fn wait_for_input() {
-    use std::io;
-
-    let mut buffer = String::new();
-    let _ = io::stdin().read_line(&mut buffer);
-}
-
-#[cfg(feature = "verbose")]
-fn print_register_values(&self) {
-    println!("{:=^30}", "Registers");
-    for register_index in 0..RegisterID::RMax as usize + 1 {
-        let register = self.get_register(register_index as u32);
-        println!("==> R{:<2}: {}", register_index, register);
-    }
-    println!("{:=^30}", "");
-}
-
-#[cfg(feature = "dbg_memory")]
-fn print_memory(&self) {
-    println!("{:=^30}", "Heap");
-    println!("==> {:?}", &self.memory);
-    println!("{:=^30}", "");
-}
-
-#[cfg(feature = "dbg_global")]
-fn print_globals(&self) {
-    println!("{:=^30}", "Globals");
-    print_vec_of_registers(&self.globals);
-    println!("{:=^30}", "");
-}
-
-#[cfg(feature = "dbg_local")]
-fn print_locals(&self) {
-    println!("{:=^30}", "Locals");
-    print_vec_of_registers(&self.locals);
-    println!("{:=^30}", "");
-}
-
-#[cfg(feature = "dbg_global")]
-fn print_identifiers(&self) {
-    println!("{:=^30}", "Identifiers");
-    println!("==> {:?}", &self.identifiers);
-    println!("{:=^30}", "");
 }
