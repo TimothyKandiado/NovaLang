@@ -84,7 +84,9 @@ impl Display for Register {
                 "ImmAddress", self.value, self.value
             ),
 
-            _ => todo!(),
+            RegisterValueKind::NovaFunctionID(_) => {
+                "NovaFunctionID".to_string()
+            }
         };
 
         write!(f, "{}", description)

@@ -489,11 +489,11 @@ pub fn debug(vm: &VirtualMachineData) {
     print_identifiers(vm);
     #[cfg(feature = "dbg_memory")]
     print_memory(vm);
-    #[cfg(feature = "verbose")]
+    #[cfg(feature = "dbg_step")]
     wait_for_input();
 }
 
-#[cfg(feature = "debug")]
+#[cfg(feature = "dbg_step")]
 fn wait_for_input() {
     use std::io;
 

@@ -16,7 +16,7 @@ lto = true
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [features]
-default = ["verbose"]
+default = []
 debug = []
 verbose = ["debug", "dbg_memory", "dbg_code"]
 dbg_memory = ["dbg_local", "dbg_global"]
@@ -24,6 +24,7 @@ dbg_local = ["debug"]
 dbg_global = ["debug"]
 dbg_code = ["debug"]
 dbg_step = ["dbg_local", "dbg_code"]
+
 
 
 [dependencies]
