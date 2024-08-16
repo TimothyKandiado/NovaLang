@@ -5,11 +5,26 @@ name := "Sanji Vinsmoke"
 sum := num1 + num2
 println("Sum = ", sum)
 
-throw_error()
-
-illegal_op := name * num1
-println(illegal_op)
+function1()
 
 fn throw_error()
     return "Word" * 99
+end
+
+fn function1() 
+    num := 30
+    println(num, "^", 2, " = ", num^2)
+    function2()
+
+    # Unreachable code
+    println("Unreachable")
+end
+
+fn function2()
+    value := 7
+    println("value = ", value)
+    throw_error()
+    
+    # Unreachable code
+    println("Unreachable")
 end

@@ -104,9 +104,9 @@ dependencies = [
 
 [[package]]
 name = "libc"
-version = "0.2.155"
+version = "0.2.156"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "97b3888a4aecf77e811145cadf6eef5901f4782c53886191b2f693f24761847c"
+checksum = "a5f43f184355eefb8d17fc948dbecf6c13be3c141f20d834ae842193a448c72a"
 
 [[package]]
 name = "log"
@@ -133,8 +133,8 @@ dependencies = [
 
 [[package]]
 name = "nova_tw"
-version = "0.5.3"
-source = "git+https://github.com/TimothyKandiado/NovaLang-TW#e592bd70fcff67f1b8002432a876e49d455b6d1a"
+version = "0.5.4"
+source = "git+https://github.com/TimothyKandiado/NovaLang-TW#ec06fc814e73e2728c4750ce94bd26d6f43d6c1b"
 dependencies = [
  "chrono",
 ]

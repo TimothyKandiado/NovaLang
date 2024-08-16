@@ -171,10 +171,10 @@ impl VirtualMachine {
             return;
         }
 
-        let frames = &self.frames.iter().as_slice()[1..];
+        let frames = self.frames.iter().as_slice()[1..].iter().rev();
 
         for frame in frames {
-            let program_counter = frame.return_address as usize;
+            let program_counter = frame.return_address as usize - 2; // I don't understand why 2, but it works
 
             let line_definition = self.get_source_line_definition(program_counter);
 
