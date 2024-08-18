@@ -2,6 +2,7 @@ pub mod bytecode_execution;
 pub mod memory_management;
 pub mod program_management;
 pub mod register_management;
+pub mod garbage_collection;
 
 use std::ptr::copy_nonoverlapping;
 
@@ -176,6 +177,13 @@ impl VirtualMachine {
     }
 
     #[inline(always)]
+    #[allow(dead_code)]
+    fn trigger_garbage_collection(vm_data: &mut VirtualMachineData) {
+        let live_objects = garbage_collection::mark_all_live_objects(vm_data);
+        let _freed_memory = garbage_collection::clean_all_dead_objects(&mut vm_data.memory, &live_objects);
+    }
+
+    #[inline(always)]
     fn print_error(&self) {
         let register = get_register(&self.registers, RegisterID::RERR as Instruction);
 
@@ -255,6 +263,12 @@ impl VirtualMachine {
             mem_cache: &mut self.mem_cache,
         };
 
+        // in millis
+        // #[cfg(not(feature = "gc_always"))]
+        // let gc_delta_time = 40;
+        // #[cfg(not(feature = "gc_always"))]
+        // let mut gc_last_active_time = chrono::Utc::now().timestamp_millis();
+
         while *virtual_machine_data.running {
             #[cfg(feature = "debug")]
             debug(&virtual_machine_data);
@@ -271,8 +285,21 @@ impl VirtualMachine {
                 self.clear_error();
                 return 1;
             }
-        }
 
+            //#[cfg(feature = "gc_always")]
+            //Self::trigger_garbage_collection(&mut virtual_machine_data);
+
+            /* #[cfg(not(feature = "gc_always"))] {
+                let current_instant = chrono::Utc::now().timestamp_millis();
+                let duration = current_instant - gc_last_active_time;
+
+                if duration >= gc_delta_time {
+                    // Self::trigger_garbage_collection(&mut virtual_machine_data);
+                    gc_last_active_time = chrono::Utc::now().timestamp_millis();
+                }
+                
+            } */
+        }
         0
     }
 
