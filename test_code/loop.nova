@@ -1,5 +1,5 @@
 fn main()
-    iterations := 1E4
+    iterations := 1E6
     index := 0
     type := "milli"
 

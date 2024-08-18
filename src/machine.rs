@@ -287,7 +287,7 @@ impl VirtualMachine {
             }
 
             //#[cfg(feature = "gc_always")]
-            //Self::trigger_garbage_collection(&mut virtual_machine_data);
+            Self::trigger_garbage_collection(&mut virtual_machine_data);
 
             /* #[cfg(not(feature = "gc_always"))] {
                 let current_instant = chrono::Utc::now().timestamp_millis();
