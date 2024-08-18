@@ -450,11 +450,58 @@ pub fn add(instruction: Instruction, virtual_machine_data: &mut VirtualMachineDa
         );
     }
 
+    if let (RegisterValueKind::ImmAddress, RegisterValueKind::ImmAddress) =
+        (register_1.kind, register_2.kind)
+    {
+        let object1 = &immutables[register_1.value as usize];
+        let object2 = &immutables[register_2.value as usize];
+
+        if let (NovaObject::String(string1), NovaObject::String(string2)) = (object1, object2) {
+
+            let mut new_value = string1.as_str().to_string();
+            new_value.push_str(&string2);
+
+            let new_object = NovaObject::String(Box::new(new_value));
+            let address = store_object_in_memory(*memory, new_object);
+            load_memory_address_to_register(*registers, destination_register, address);
+            return;
+        }
+        emit_error_with_message(
+            *registers,
+            *memory,
+            &format!("cannot add {:?} to {:?}", register_1.kind, object2),
+        );
+    }
+
+    if let (RegisterValueKind::MemAddress, RegisterValueKind::MemAddress) =
+        (register_1.kind, register_2.kind)
+    {
+        let object1 = &memory[register_1.value as usize];
+        let object2 = &memory[register_2.value as usize];
+
+        if let (NovaObject::String(string1), NovaObject::String(string2)) = (object1, object2) {
+
+            let mut new_value = string1.as_str().to_string();
+            new_value.push_str(&string2);
+
+            let new_object = NovaObject::String(Box::new(new_value));
+            let address = store_object_in_memory(*memory, new_object);
+            load_memory_address_to_register(*registers, destination_register, address);
+            return;
+        }
+        emit_error_with_message(
+            *registers,
+            *memory,
+            &format!("cannot add {:?} to {:?}", register_1.kind, object2),
+        );
+    }
+
     emit_error_with_message(
         *registers,
         *memory,
         &format!("cannot add {:?} to {:?}", register_1.kind, register_2.kind),
     )
+
 }
 
 #[inline(always)]

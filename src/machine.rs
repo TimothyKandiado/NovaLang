@@ -4,7 +4,7 @@ pub mod program_management;
 pub mod register_management;
 pub mod garbage_collection;
 
-use std::ptr::copy_nonoverlapping;
+use std::{ptr::copy_nonoverlapping, sync::{Arc, RwLock}, thread, time::Duration};
 
 use memory_management::{allocate_global, create_global, set_global_value, store_object_in_memory};
 use program_management::{check_error, emit_error_with_message, get_next_instruction};
@@ -263,11 +263,25 @@ impl VirtualMachine {
             mem_cache: &mut self.mem_cache,
         };
 
-        // in millis
-        // #[cfg(not(feature = "gc_always"))]
-        // let gc_delta_time = 40;
-        // #[cfg(not(feature = "gc_always"))]
-        // let mut gc_last_active_time = chrono::Utc::now().timestamp_millis();
+        
+        #[cfg(not(feature = "gc_always"))]
+        let run_gc = Arc::new(RwLock::new(false));
+        #[cfg(not(feature = "gc_always"))]
+        let run_gc0 = run_gc.clone();
+        
+        #[cfg(not(feature = "gc_always"))]
+        let gc_delta_time: u64 = 30; // millis
+        
+
+        #[cfg(not(feature = "gc_always"))]
+        thread::spawn(move || {
+            
+            loop {
+                thread::sleep(Duration::from_millis(gc_delta_time));
+                let mut value_lock = run_gc0.write().unwrap();
+                *value_lock = true;
+            }
+        });
 
         while *virtual_machine_data.running {
             #[cfg(feature = "debug")]
@@ -286,19 +300,18 @@ impl VirtualMachine {
                 return 1;
             }
 
-            //#[cfg(feature = "gc_always")]
+            #[cfg(feature = "gc_always")]
             Self::trigger_garbage_collection(&mut virtual_machine_data);
 
-            /* #[cfg(not(feature = "gc_always"))] {
-                let current_instant = chrono::Utc::now().timestamp_millis();
-                let duration = current_instant - gc_last_active_time;
 
-                if duration >= gc_delta_time {
-                    // Self::trigger_garbage_collection(&mut virtual_machine_data);
-                    gc_last_active_time = chrono::Utc::now().timestamp_millis();
+            #[cfg(not(feature = "gc_always"))]
+            {
+                let mut should_run_gc = run_gc.write().unwrap();
+                if *should_run_gc {
+                    Self::trigger_garbage_collection(&mut virtual_machine_data);
+                    *should_run_gc = false;
                 }
-                
-            } */
+            }
         }
         0
     }

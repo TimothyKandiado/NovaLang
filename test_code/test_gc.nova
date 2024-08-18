@@ -1,0 +1,14 @@
+fn print_name(first, last)
+    full := first + " " + last
+    println("fullname = ", full)
+end
+
+first := "Tony"
+last := "Stark"
+
+num := 4
+
+while num > 0
+    num = num - 1
+    print_name(first, last)
+end
