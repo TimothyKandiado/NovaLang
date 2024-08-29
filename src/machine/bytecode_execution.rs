@@ -1,3 +1,7 @@
+mod arithmetic_operations;
+
+use arithmetic_operations::{op_float_float, op_float_int, op_int_float, op_int_int, ArithmeticOp};
+
 use crate::{
     bytecode::OpCode,
     instruction::{instruction_decoder, Instruction},
@@ -303,59 +307,35 @@ pub fn add(instruction: Instruction, virtual_machine_data: &mut VirtualMachineDa
     let register_1 = get_register(*registers, source_register_1);
     let register_2 = get_register(*registers, source_register_2);
 
-    if let (RegisterValueKind::Float64, RegisterValueKind::Float64) =
-        (register_1.kind, register_2.kind)
-    {
-        let value_1 = f64::from_bits(register_1.value);
-        let value_2 = f64::from_bits(register_2.value);
-
-        let sum = value_1 + value_2;
-        let sum = sum.to_bits();
-
-        let new_value = Register::new(RegisterValueKind::Float64, sum);
-        set_value_in_register(*registers, destination_register, new_value);
-        return;
-    }
-
-    if let (RegisterValueKind::Int64, RegisterValueKind::Int64) = (register_1.kind, register_2.kind)
-    {
-        let value_1 = register_1.value as i64;
-        let value_2 = register_2.value as i64;
-
-        let result = value_1 + value_2;
-        let result = result as u64;
-
-        let new_value = Register::new(RegisterValueKind::Int64, result);
-        set_value_in_register(*registers, destination_register, new_value);
-        return;
-    }
-
-    if let (RegisterValueKind::Float64, RegisterValueKind::Int64) =
-        (register_1.kind, register_2.kind)
-    {
-        let value_1 = f64::from_bits(register_1.value);
-        let value_2 = register_2.value as i64;
-
-        let result = value_1 + (value_2 as f64);
-        let result = result.to_bits();
-
-        let new_value = Register::new(RegisterValueKind::Float64, result);
-        set_value_in_register(*registers, destination_register, new_value);
-        return;
-    }
-
-    if let (RegisterValueKind::Int64, RegisterValueKind::Float64) =
-        (register_1.kind, register_2.kind)
-    {
-        let value_1 = register_1.value as i64;
-        let value_2 = f64::from_bits(register_2.value);
-
-        let result = value_1 as f64 + value_2;
-        let result = result.to_bits();
-
-        let new_value = Register::new(RegisterValueKind::Float64, result);
-        set_value_in_register(*registers, destination_register, new_value);
-        return;
+    match (register_1.kind, register_2.kind) {
+        // Simple arithmetic
+        (RegisterValueKind::Float64, RegisterValueKind::Float64) => {
+            let result = op_float_float(ArithmeticOp::Add, register_1, register_2);
+            set_value_in_register(*registers, destination_register, result);
+            return;
+        }
+        (RegisterValueKind::Int64, RegisterValueKind::Int64) => {
+            let result = op_int_int(ArithmeticOp::Add, register_1, register_2);
+            set_value_in_register(*registers, destination_register, result);
+            return;
+        }
+        (RegisterValueKind::Int64, RegisterValueKind::Float64) => {
+            let result = op_int_float(ArithmeticOp::Add, register_1, register_2);
+            set_value_in_register(*registers, destination_register, result);
+            return;
+        }
+        (RegisterValueKind::Float64, RegisterValueKind::Int64) => {
+            let result = op_float_int(ArithmeticOp::Add, register_1, register_2);
+            set_value_in_register(*registers, destination_register, result);
+            return;
+        }
+        _ => {
+            emit_error_with_message(
+                *registers,
+                *memory,
+                &format!("cannot add {:?} to {:?}", register_1.kind, register_2.kind),
+            );
+        }
     }
 
     if let (RegisterValueKind::MemAddress, RegisterValueKind::Float64) =
@@ -516,69 +496,36 @@ pub fn sub(instruction: Instruction, virtual_machine_data: &mut VirtualMachineDa
     let register_1 = get_register(*registers, source_register_1);
     let register_2 = get_register(*registers, source_register_2);
 
-    if let (RegisterValueKind::Float64, RegisterValueKind::Float64) =
-        (register_1.kind, register_2.kind)
-    {
-        let value_1 = f64::from_bits(register_1.value);
-        let value_2 = f64::from_bits(register_2.value);
-
-        let sub = value_1 - value_2;
-        let sub = sub.to_bits();
-
-        let new_value = Register::new(register_1.kind, sub);
-        set_value_in_register(*registers, destination_register, new_value);
-        return;
+    match (register_1.kind, register_2.kind) {
+        // Simple arithmetic
+        (RegisterValueKind::Float64, RegisterValueKind::Float64) => {
+            let result = op_float_float(ArithmeticOp::Sub, register_1, register_2);
+            set_value_in_register(*registers, destination_register, result);
+            
+        }
+        (RegisterValueKind::Int64, RegisterValueKind::Int64) => {
+            let result = op_int_int(ArithmeticOp::Sub, register_1, register_2);
+            set_value_in_register(*registers, destination_register, result);
+            
+        }
+        (RegisterValueKind::Int64, RegisterValueKind::Float64) => {
+            let result = op_int_float(ArithmeticOp::Sub, register_1, register_2);
+            set_value_in_register(*registers, destination_register, result);
+            
+        }
+        (RegisterValueKind::Float64, RegisterValueKind::Int64) => {
+            let result = op_float_int(ArithmeticOp::Sub, register_1, register_2);
+            set_value_in_register(*registers, destination_register, result);
+            
+        }
+        _ => {
+            emit_error_with_message(
+                *registers,
+                *memory,
+                &format!("cannot subtract {:?} to {:?}", register_1.kind, register_2.kind),
+            );
+        }
     }
-
-    if let (RegisterValueKind::Int64, RegisterValueKind::Int64) = (register_1.kind, register_2.kind)
-    {
-        let value_1 = register_1.value as i64;
-        let value_2 = register_2.value as i64;
-
-        let result = value_1 - value_2;
-        let result = result as u64;
-
-        let new_value = Register::new(RegisterValueKind::Int64, result);
-        set_value_in_register(*registers, destination_register, new_value);
-        return;
-    }
-
-    if let (RegisterValueKind::Float64, RegisterValueKind::Int64) =
-        (register_1.kind, register_2.kind)
-    {
-        let value_1 = f64::from_bits(register_1.value);
-        let value_2 = register_2.value as i64;
-
-        let result = value_1 - (value_2 as f64);
-        let result = result.to_bits();
-
-        let new_value = Register::new(RegisterValueKind::Float64, result);
-        set_value_in_register(*registers, destination_register, new_value);
-        return;
-    }
-
-    if let (RegisterValueKind::Int64, RegisterValueKind::Float64) =
-        (register_1.kind, register_2.kind)
-    {
-        let value_1 = register_1.value as i64;
-        let value_2 = f64::from_bits(register_2.value);
-
-        let result = value_1 as f64 - value_2;
-        let result = result.to_bits();
-
-        let new_value = Register::new(RegisterValueKind::Float64, result);
-        set_value_in_register(*registers, destination_register, new_value);
-        return;
-    }
-
-    emit_error_with_message(
-        *registers,
-        *memory,
-        &format!(
-            "cannot subtract {:?} by {:?}",
-            register_1.kind, register_2.kind
-        ),
-    )
 }
 
 #[inline(always)]
@@ -593,69 +540,36 @@ pub fn mul(instruction: Instruction, virtual_machine_data: &mut VirtualMachineDa
     let register_1 = get_register(*registers, source_register_1);
     let register_2 = get_register(*registers, source_register_2);
 
-    if let (RegisterValueKind::Float64, RegisterValueKind::Float64) =
-        (register_1.kind, register_2.kind)
-    {
-        let value_1 = f64::from_bits(register_1.value);
-        let value_2 = f64::from_bits(register_2.value);
-
-        let mul = value_1 * value_2;
-        let mul = mul.to_bits();
-
-        let new_value = Register::new(register_1.kind, mul);
-        set_value_in_register(*registers, destination_register, new_value);
-        return;
+    match (register_1.kind, register_2.kind) {
+        // Simple arithmetic
+        (RegisterValueKind::Float64, RegisterValueKind::Float64) => {
+            let result = op_float_float(ArithmeticOp::Mul, register_1, register_2);
+            set_value_in_register(*registers, destination_register, result);
+            return;
+        }
+        (RegisterValueKind::Int64, RegisterValueKind::Int64) => {
+            let result = op_int_int(ArithmeticOp::Mul, register_1, register_2);
+            set_value_in_register(*registers, destination_register, result);
+            return;
+        }
+        (RegisterValueKind::Int64, RegisterValueKind::Float64) => {
+            let result = op_int_float(ArithmeticOp::Mul, register_1, register_2);
+            set_value_in_register(*registers, destination_register, result);
+            return;
+        }
+        (RegisterValueKind::Float64, RegisterValueKind::Int64) => {
+            let result = op_float_int(ArithmeticOp::Mul, register_1, register_2);
+            set_value_in_register(*registers, destination_register, result);
+            return;
+        }
+        _ => {
+            emit_error_with_message(
+                *registers,
+                *memory,
+                &format!("cannot multiply {:?} with {:?}", register_1.kind, register_2.kind),
+            );
+        }
     }
-
-    if let (RegisterValueKind::Int64, RegisterValueKind::Int64) = (register_1.kind, register_2.kind)
-    {
-        let value_1 = register_1.value as i64;
-        let value_2 = register_2.value as i64;
-
-        let result = value_1 * value_2;
-        let result = result as u64;
-
-        let new_value = Register::new(RegisterValueKind::Int64, result);
-        set_value_in_register(*registers, destination_register, new_value);
-        return;
-    }
-
-    if let (RegisterValueKind::Float64, RegisterValueKind::Int64) =
-        (register_1.kind, register_2.kind)
-    {
-        let value_1 = f64::from_bits(register_1.value);
-        let value_2 = register_2.value as i64;
-
-        let result = value_1 * (value_2 as f64);
-        let result = result.to_bits();
-
-        let new_value = Register::new(RegisterValueKind::Float64, result);
-        set_value_in_register(*registers, destination_register, new_value);
-        return;
-    }
-
-    if let (RegisterValueKind::Int64, RegisterValueKind::Float64) =
-        (register_1.kind, register_2.kind)
-    {
-        let value_1 = register_1.value as i64;
-        let value_2 = f64::from_bits(register_2.value);
-
-        let result = value_1 as f64 * value_2;
-        let result = result.to_bits();
-
-        let new_value = Register::new(RegisterValueKind::Float64, result);
-        set_value_in_register(*registers, destination_register, new_value);
-        return;
-    }
-
-    emit_error_with_message(
-        *registers,
-        *memory,
-        &format!(
-            "cannot multiply {:?} by {:?}",
-            register_1.kind, register_2.kind
-        ),
-    )
 }
 
 #[inline(always)]
@@ -670,69 +584,36 @@ pub fn div(instruction: Instruction, virtual_machine_data: &mut VirtualMachineDa
     let register_1 = get_register(*registers, source_register_1);
     let register_2 = get_register(*registers, source_register_2);
 
-    if let (RegisterValueKind::Float64, RegisterValueKind::Float64) =
-        (register_1.kind, register_2.kind)
-    {
-        let value_1 = f64::from_bits(register_1.value);
-        let value_2 = f64::from_bits(register_2.value);
-
-        let div = value_1 / value_2;
-        let div = div.to_bits();
-
-        let new_value = Register::new(register_1.kind, div);
-        set_value_in_register(*registers, destination_register, new_value);
-        return;
+    match (register_1.kind, register_2.kind) {
+        // Simple arithmetic
+        (RegisterValueKind::Float64, RegisterValueKind::Float64) => {
+            let result = op_float_float(ArithmeticOp::Div, register_1, register_2);
+            set_value_in_register(*registers, destination_register, result);
+            return;
+        }
+        (RegisterValueKind::Int64, RegisterValueKind::Int64) => {
+            let result = op_int_int(ArithmeticOp::Div, register_1, register_2);
+            set_value_in_register(*registers, destination_register, result);
+            return;
+        }
+        (RegisterValueKind::Int64, RegisterValueKind::Float64) => {
+            let result = op_int_float(ArithmeticOp::Div, register_1, register_2);
+            set_value_in_register(*registers, destination_register, result);
+            return;
+        }
+        (RegisterValueKind::Float64, RegisterValueKind::Int64) => {
+            let result = op_float_int(ArithmeticOp::Div, register_1, register_2);
+            set_value_in_register(*registers, destination_register, result);
+            return;
+        }
+        _ => {
+            emit_error_with_message(
+                *registers,
+                *memory,
+                &format!("cannot divide {:?} with {:?}", register_1.kind, register_2.kind),
+            );
+        }
     }
-
-    if let (RegisterValueKind::Int64, RegisterValueKind::Int64) = (register_1.kind, register_2.kind)
-    {
-        let value_1 = register_1.value as i64;
-        let value_2 = register_2.value as i64;
-
-        let result = value_1 as f64 / value_2 as f64;
-        let result = result.to_bits();
-
-        let new_value = Register::new(RegisterValueKind::Float64, result);
-        set_value_in_register(*registers, destination_register, new_value);
-        return;
-    }
-
-    if let (RegisterValueKind::Float64, RegisterValueKind::Int64) =
-        (register_1.kind, register_2.kind)
-    {
-        let value_1 = f64::from_bits(register_1.value);
-        let value_2 = register_2.value as i64;
-
-        let result = value_1 / (value_2 as f64);
-        let result = result.to_bits();
-
-        let new_value = Register::new(RegisterValueKind::Float64, result);
-        set_value_in_register(*registers, destination_register, new_value);
-        return;
-    }
-
-    if let (RegisterValueKind::Int64, RegisterValueKind::Float64) =
-        (register_1.kind, register_2.kind)
-    {
-        let value_1 = register_1.value as i64;
-        let value_2 = f64::from_bits(register_2.value);
-
-        let result = value_1 as f64 / value_2;
-        let result = result.to_bits();
-
-        let new_value = Register::new(RegisterValueKind::Float64, result);
-        set_value_in_register(*registers, destination_register, new_value);
-        return;
-    }
-
-    emit_error_with_message(
-        *registers,
-        *memory,
-        &format!(
-            "cannot divide {:?} by {:?}",
-            register_1.kind, register_2.kind
-        ),
-    )
 }
 
 #[inline(always)]
@@ -747,69 +628,36 @@ pub fn pow(instruction: Instruction, virtual_machine_data: &mut VirtualMachineDa
     let register_1 = get_register(*registers, source_register_1);
     let register_2 = get_register(*registers, source_register_2);
 
-    if let (RegisterValueKind::Float64, RegisterValueKind::Float64) =
-        (register_1.kind, register_2.kind)
-    {
-        let value_1 = f64::from_bits(register_1.value);
-        let value_2 = f64::from_bits(register_2.value);
-
-        let pow = value_1.powf(value_2);
-        let pow = pow.to_bits();
-
-        let new_value = Register::new(register_1.kind, pow);
-        set_value_in_register(*registers, destination_register, new_value);
-        return;
+    match (register_1.kind, register_2.kind) {
+        // Simple arithmetic
+        (RegisterValueKind::Float64, RegisterValueKind::Float64) => {
+            let result = op_float_float(ArithmeticOp::Pow, register_1, register_2);
+            set_value_in_register(*registers, destination_register, result);
+            return;
+        }
+        (RegisterValueKind::Int64, RegisterValueKind::Int64) => {
+            let result = op_int_int(ArithmeticOp::Pow, register_1, register_2);
+            set_value_in_register(*registers, destination_register, result);
+            return;
+        }
+        (RegisterValueKind::Int64, RegisterValueKind::Float64) => {
+            let result = op_int_float(ArithmeticOp::Pow, register_1, register_2);
+            set_value_in_register(*registers, destination_register, result);
+            return;
+        }
+        (RegisterValueKind::Float64, RegisterValueKind::Int64) => {
+            let result = op_float_int(ArithmeticOp::Pow, register_1, register_2);
+            set_value_in_register(*registers, destination_register, result);
+            return;
+        }
+        _ => {
+            emit_error_with_message(
+                *registers,
+                *memory,
+                &format!("cannot find power of {:?} to {:?}", register_1.kind, register_2.kind),
+            );
+        }
     }
-
-    if let (RegisterValueKind::Int64, RegisterValueKind::Int64) = (register_1.kind, register_2.kind)
-    {
-        let value_1 = register_1.value as i64;
-        let value_2 = register_2.value as i64;
-
-        let result = (value_1 as f64).powf(value_2 as f64);
-        let result = result.to_bits();
-
-        let new_value = Register::new(RegisterValueKind::Float64, result);
-        set_value_in_register(*registers, destination_register, new_value);
-        return;
-    }
-
-    if let (RegisterValueKind::Float64, RegisterValueKind::Int64) =
-        (register_1.kind, register_2.kind)
-    {
-        let value_1 = f64::from_bits(register_1.value);
-        let value_2 = register_2.value as i64;
-
-        let result = value_1.powf(value_2 as f64);
-        let result = result.to_bits();
-
-        let new_value = Register::new(RegisterValueKind::Float64, result);
-        set_value_in_register(*registers, destination_register, new_value);
-        return;
-    }
-
-    if let (RegisterValueKind::Int64, RegisterValueKind::Float64) =
-        (register_1.kind, register_2.kind)
-    {
-        let value_1 = register_1.value as i64;
-        let value_2 = f64::from_bits(register_2.value);
-
-        let result = (value_1 as f64).powf(value_2);
-        let result = result.to_bits();
-
-        let new_value = Register::new(RegisterValueKind::Float64, result);
-        set_value_in_register(*registers, destination_register, new_value);
-        return;
-    }
-
-    emit_error_with_message(
-        *registers,
-        *memory,
-        &format!(
-            "cannot calculate power of {:?} to {:?}",
-            register_1.kind, register_2.kind
-        ),
-    )
 }
 
 #[inline(always)]
@@ -824,28 +672,36 @@ pub fn modulus(instruction: Instruction, virtual_machine_data: &mut VirtualMachi
     let register_1 = get_register(*registers, source_register_1);
     let register_2 = get_register(*registers, source_register_2);
 
-    if let (RegisterValueKind::Float64, RegisterValueKind::Float64) =
-        (register_1.kind, register_2.kind)
-    {
-        let value_1 = f64::from_bits(register_1.value) as i32;
-        let value_2 = f64::from_bits(register_2.value) as i32;
-
-        let modulus = (value_1 % value_2) as i64;
-        let modulus = modulus as u64;
-
-        let new_value = Register::new(RegisterValueKind::Int64, modulus);
-        set_value_in_register(*registers, destination_register, new_value);
-        return;
+    match (register_1.kind, register_2.kind) {
+        // Simple arithmetic
+        (RegisterValueKind::Float64, RegisterValueKind::Float64) => {
+            let result = op_float_float(ArithmeticOp::Mod, register_1, register_2);
+            set_value_in_register(*registers, destination_register, result);
+            return;
+        }
+        (RegisterValueKind::Int64, RegisterValueKind::Int64) => {
+            let result = op_int_int(ArithmeticOp::Mod, register_1, register_2);
+            set_value_in_register(*registers, destination_register, result);
+            return;
+        }
+        (RegisterValueKind::Int64, RegisterValueKind::Float64) => {
+            let result = op_int_float(ArithmeticOp::Mod, register_1, register_2);
+            set_value_in_register(*registers, destination_register, result);
+            return;
+        }
+        (RegisterValueKind::Float64, RegisterValueKind::Int64) => {
+            let result = op_float_int(ArithmeticOp::Mod, register_1, register_2);
+            set_value_in_register(*registers, destination_register, result);
+            return;
+        }
+        _ => {
+            emit_error_with_message(
+                *registers,
+                *memory,
+                &format!("cannot find modulus of {:?} to {:?}", register_1.kind, register_2.kind),
+            );
+        }
     }
-
-    emit_error_with_message(
-        *registers,
-        *memory,
-        &format!(
-            "cannot find modulus {:?} by {:?}",
-            register_1.kind, register_2.kind
-        ),
-    )
 }
 
 #[inline(always)]
