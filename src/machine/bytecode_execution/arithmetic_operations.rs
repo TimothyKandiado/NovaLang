@@ -72,7 +72,7 @@ pub fn op_int_int(op: ArithmeticOp, register_1: Register, register_2: Register) 
     };
 
     let result = result as u64;
-    Register::new(RegisterValueKind::Float64, result)
+    Register::new(RegisterValueKind::Int64, result)
 }
 
 #[inline(always)]

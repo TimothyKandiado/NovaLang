@@ -557,7 +557,7 @@ fn print_register_values(vm: &VirtualMachineData) {
 #[cfg(feature = "dbg_memory")]
 fn print_memory(vm: &VirtualMachineData) {
     println!("{:=^30}", "Heap");
-    println!("==> {:?}", &vm.memory);
+    print_vec_of_objects(&vm.memory);
     println!("{:=^30}", "");
 }
 
@@ -580,6 +580,15 @@ fn print_identifiers(vm: &VirtualMachineData) {
     println!("{:=^30}", "Identifiers");
     println!("==> {:?}", &vm.identifiers);
     println!("{:=^30}", "");
+}
+
+#[allow(dead_code)]
+fn print_vec_of_objects(objects: &[NovaObject]) {
+    println!("[");
+    for (index, object) in objects.iter().enumerate() {
+        println!("\t[{}] {}", index, object);
+    }
+    println!("]");
 }
 
 #[cfg(test)]

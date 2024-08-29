@@ -1,6 +1,8 @@
 mod arithmetic_operations;
+mod string_operations;
 
 use arithmetic_operations::{op_float_float, op_float_int, op_int_float, op_int_int, ArithmeticOp};
+use string_operations::{add_num_str, add_str_num};
 
 use crate::{
     bytecode::OpCode,
@@ -20,7 +22,7 @@ use super::{
     },
     register_management::{
         clear_register, compare_registers, get_register, is_truthy, load_f64_to_register,
-        load_i64_to_register, load_memory_address_to_register, package_register_into_nova_object,
+        load_i64_to_register, package_register_into_nova_object,
         set_value_in_register,
     },
     VirtualMachineData,
@@ -266,6 +268,8 @@ pub fn print(instruction: Instruction, virtual_machine_data: &mut VirtualMachine
         }
 
         RegisterValueKind::NovaFunctionID(_) => todo!(),
+        RegisterValueKind::StrMem => todo!(),
+        RegisterValueKind::StrImm => todo!(),
     }
     if newline == 1 {
         println!()
@@ -329,159 +333,107 @@ pub fn add(instruction: Instruction, virtual_machine_data: &mut VirtualMachineDa
             set_value_in_register(*registers, destination_register, result);
             return;
         }
-        _ => {
+
+        (RegisterValueKind::StrImm, RegisterValueKind::Float64 | RegisterValueKind::Int64) => {
+            let string1object = &immutables[register_1.value as usize];
+            let object = add_str_num(string1object, register_2);
+            let address = store_object_in_memory(*memory, object) as u64;
+            let register = Register::new(RegisterValueKind::StrMem, address);
+            set_value_in_register(*registers, destination_register, register);
+            return;
+        }
+
+        (RegisterValueKind::Float64 | RegisterValueKind::Int64, RegisterValueKind::StrImm) => {
+            let string2_object = &immutables[register_1.value as usize];
+            let object = add_num_str(register_1, string2_object);
+            let address = store_object_in_memory(*memory, object) as u64;
+            let register = Register::new(RegisterValueKind::StrMem, address);
+            set_value_in_register(*registers, destination_register, register);
+            return;
+        }
+
+        (RegisterValueKind::StrMem, RegisterValueKind::Float64 | RegisterValueKind::Int64) => {
+            let string1object = &memory[register_1.value as usize];
+            let object = add_str_num(string1object, register_2);
+            let address = store_object_in_memory(*memory, object) as u64;
+            let register = Register::new(RegisterValueKind::StrMem, address);
+            set_value_in_register(*registers, destination_register, register);
+            return;
+        }
+
+        (RegisterValueKind::Float64 | RegisterValueKind::Int64, RegisterValueKind::StrMem) => {
+            let string2_object = &memory[register_1.value as usize];
+            let object = add_num_str(register_1, string2_object);
+            let address = store_object_in_memory(*memory, object) as u64;
+            let register = Register::new(RegisterValueKind::StrMem, address);
+            set_value_in_register(*registers, destination_register, register);
+            return;
+        }
+
+        (RegisterValueKind::StrMem, RegisterValueKind::StrMem) => {
+            let mut string1 = unsafe {
+                memory.get_unchecked(register_1.value as usize).to_string()
+            };
+            let string2 = unsafe {
+                memory.get_unchecked(register_2.value as usize).to_string()
+            };
+
+            string1.push_str(&string2);
+            let object = NovaObject::String(Box::new(string1));
+            let address = store_object_in_memory(*memory, object) as u64;
+            let register = Register::new(RegisterValueKind::StrMem, address);
+            set_value_in_register(*registers, destination_register, register);
+            return;
+        }
+
+        (RegisterValueKind::StrImm, RegisterValueKind::StrImm) => {
+            let mut string1 = immutables[register_1.value as usize].to_string();
+            let string2 = immutables[register_2.value as usize].to_string();
+
+            string1.push_str(&string2);
+            let object = NovaObject::String(Box::new(string1));
+            let address = store_object_in_memory(*memory, object) as u64;
+            let register = Register::new(RegisterValueKind::StrMem, address);
+            set_value_in_register(*registers, destination_register, register);
+            return;
+        }
+
+        (RegisterValueKind::StrImm, RegisterValueKind::StrMem) => {
+            let mut string1 = immutables[register_1.value as usize].to_string();
+            let string2 = unsafe {
+                memory.get_unchecked(register_2.value as usize).to_string()
+            };
+
+            string1.push_str(&string2);
+            let object = NovaObject::String(Box::new(string1));
+            let address = store_object_in_memory(*memory, object) as u64;
+            let register = Register::new(RegisterValueKind::StrMem, address);
+            set_value_in_register(*registers, destination_register, register);
+            return;
+        }
+
+        (RegisterValueKind::StrMem, RegisterValueKind::StrImm) => {
+            let mut string1 = unsafe {
+                memory.get_unchecked(register_1.value as usize).to_string()
+            };
+            let string2 = immutables[register_2.value as usize].to_string();
+
+            string1.push_str(&string2);
+            let object = NovaObject::String(Box::new(string1));
+            let address = store_object_in_memory(*memory, object) as u64;
+            let register = Register::new(RegisterValueKind::StrMem, address);
+            set_value_in_register(*registers, destination_register, register);
+            return;
+        }
+        
+        (_, _) => {
             emit_error_with_message(
                 *registers,
                 *memory,
                 &format!("cannot add {:?} to {:?}", register_1.kind, register_2.kind),
-            );
+            )
         }
     }
-
-    if let (RegisterValueKind::MemAddress, RegisterValueKind::Float64) =
-        (register_1.kind, register_2.kind)
-    {
-        let object1 = load_object_from_memory(*memory, register_1.value);
-        if let NovaObject::String(string) = object1 {
-            let value2 = f64::from_bits(register_2.value);
-            let value2 = value2.to_string();
-
-            let mut new_value = *string.clone();
-            new_value.push_str(&value2);
-
-            let new_object = NovaObject::String(Box::new(new_value));
-            let address = store_object_in_memory(*memory, new_object);
-            load_memory_address_to_register(*registers, destination_register, address);
-            return;
-        }
-        emit_error_with_message(
-            *registers,
-            *memory,
-            &format!("cannot add {:?} to {:?}", object1, register_2.kind),
-        );
-    }
-
-    if let (RegisterValueKind::ImmAddress, RegisterValueKind::Float64) =
-        (register_1.kind, register_2.kind)
-    {
-        let object1 = &immutables[register_1.value as usize];
-        if let NovaObject::String(string) = object1 {
-            let value2 = f64::from_bits(register_2.value);
-            let value2 = value2.to_string();
-
-            let mut new_value = *string.clone();
-            new_value.push_str(&value2);
-
-            let new_object = NovaObject::String(Box::new(new_value));
-            let address = store_object_in_memory(*memory, new_object);
-            load_memory_address_to_register(*registers, destination_register, address);
-            return;
-        }
-        emit_error_with_message(
-            *registers,
-            *memory,
-            &format!("cannot add {:?} to {:?}", object1, register_2.kind),
-        );
-    }
-
-    if let (RegisterValueKind::Float64, RegisterValueKind::MemAddress) =
-        (register_1.kind, register_2.kind)
-    {
-        let object2 = load_object_from_memory(*memory, register_2.value);
-        if let NovaObject::String(string) = object2 {
-            let value1 = f64::from_bits(register_1.value);
-            let value1 = value1.to_string();
-
-            let mut new_value = value1;
-            new_value.push_str(string);
-
-            let new_object = NovaObject::String(Box::new(new_value));
-            let address = store_object_in_memory(*memory, new_object);
-            load_memory_address_to_register(*registers, destination_register, address);
-            return;
-        }
-        emit_error_with_message(
-            *registers,
-            *memory,
-            &format!("cannot add {:?} to {:?}", register_1.kind, object2),
-        );
-    }
-
-    if let (RegisterValueKind::Float64, RegisterValueKind::ImmAddress) =
-        (register_1.kind, register_2.kind)
-    {
-        let object2 = &immutables[register_2.value as usize];
-        if let NovaObject::String(string) = object2 {
-            let value1 = f64::from_bits(register_1.value);
-            let value1 = value1.to_string();
-
-            let mut new_value = value1;
-            new_value.push_str(string);
-
-            let new_object = NovaObject::String(Box::new(new_value));
-            let address = store_object_in_memory(*memory, new_object);
-            load_memory_address_to_register(*registers, destination_register, address);
-            return;
-        }
-        emit_error_with_message(
-            *registers,
-            *memory,
-            &format!("cannot add {:?} to {:?}", register_1.kind, object2),
-        );
-    }
-
-    if let (RegisterValueKind::ImmAddress, RegisterValueKind::ImmAddress) =
-        (register_1.kind, register_2.kind)
-    {
-        let object1 = &immutables[register_1.value as usize];
-        let object2 = &immutables[register_2.value as usize];
-
-        if let (NovaObject::String(string1), NovaObject::String(string2)) = (object1, object2) {
-
-            let mut new_value = string1.as_str().to_string();
-            new_value.push_str(&string2);
-
-            let new_object = NovaObject::String(Box::new(new_value));
-            let address = store_object_in_memory(*memory, new_object);
-            load_memory_address_to_register(*registers, destination_register, address);
-            return;
-        }
-        emit_error_with_message(
-            *registers,
-            *memory,
-            &format!("cannot add {:?} to {:?}", register_1.kind, object2),
-        );
-    }
-
-    if let (RegisterValueKind::MemAddress, RegisterValueKind::MemAddress) =
-        (register_1.kind, register_2.kind)
-    {
-        let object1 = &memory[register_1.value as usize];
-        let object2 = &memory[register_2.value as usize];
-
-        if let (NovaObject::String(string1), NovaObject::String(string2)) = (object1, object2) {
-
-            let mut new_value = string1.as_str().to_string();
-            new_value.push_str(&string2);
-
-            let new_object = NovaObject::String(Box::new(new_value));
-            let address = store_object_in_memory(*memory, new_object);
-            load_memory_address_to_register(*registers, destination_register, address);
-            return;
-        }
-        emit_error_with_message(
-            *registers,
-            *memory,
-            &format!("cannot add {:?} to {:?}", register_1.kind, object2),
-        );
-    }
-
-    emit_error_with_message(
-        *registers,
-        *memory,
-        &format!("cannot add {:?} to {:?}", register_1.kind, register_2.kind),
-    )
-
 }
 
 #[inline(always)]
@@ -859,12 +811,20 @@ pub fn load_constant_to_register(
     virtual_machine_data: &mut VirtualMachineData,
 ) {
     let registers = &mut virtual_machine_data.registers;
+    let immutables = &virtual_machine_data.immutables;
 
     let destination_register = instruction_decoder::decode_destination_register(instruction);
     let immutable_address = instruction_decoder::decode_immutable_address_small(instruction);
 
+    let immutable = &immutables[immutable_address as usize];
+
+    let kind = match immutable {
+        NovaObject::String(_) => RegisterValueKind::StrImm,
+        _ => RegisterValueKind::ImmAddress
+    };
+
     let register = Register {
-        kind: RegisterValueKind::ImmAddress,
+        kind,
         value: immutable_address as u64,
     };
 

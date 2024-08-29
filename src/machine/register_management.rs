@@ -276,8 +276,8 @@ pub fn package_register_into_nova_object(
         RegisterValueKind::Int64 => NovaObject::Int64(register.value as i64),
         RegisterValueKind::Float64 => NovaObject::Float64(f64::from_bits(register.value)),
         RegisterValueKind::None => NovaObject::None,
-        RegisterValueKind::MemAddress => load_object_from_memory(memory, register.value).clone(),
-        RegisterValueKind::ImmAddress => immutables[register.value as usize].clone(),
+        RegisterValueKind::MemAddress | RegisterValueKind::StrMem => load_object_from_memory(memory, register.value).clone(),
+        RegisterValueKind::ImmAddress | RegisterValueKind::StrImm => immutables[register.value as usize].clone(),
         RegisterValueKind::Bool => todo!(),
         RegisterValueKind::NovaFunctionID(_) => todo!(),
     };
@@ -289,11 +289,7 @@ pub fn package_register_into_nova_object(
 pub fn is_truthy(register: Register) -> bool {
     match register.kind {
         RegisterValueKind::None => false,
-        RegisterValueKind::Int64 => true,
-        RegisterValueKind::Float64 => true,
         RegisterValueKind::Bool => register.value == 1,
-        RegisterValueKind::MemAddress => true,
-        RegisterValueKind::ImmAddress => true,
-        RegisterValueKind::NovaFunctionID(_) => true,
+        _ => true
     }
 }

@@ -6,9 +6,9 @@ end
 first := "Tony"
 last := "Stark"
 
-num := 4
+num := 5
 
 while num > 0
-    num = num - 1
     print_name(first, last)
+    num = num - 1
 end

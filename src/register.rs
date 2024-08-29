@@ -87,6 +87,16 @@ impl Display for Register {
             RegisterValueKind::NovaFunctionID(_) => {
                 "NovaFunctionID".to_string()
             }
+            RegisterValueKind::StrMem => format!(
+                "{:<10} : {:>#10x} | {:>10}",
+                "StrMem", self.value, self.value
+            ),
+            RegisterValueKind::StrImm => format!(
+                "{:<10} : {:>#10x} | {:>10}",
+                "StrImm", self.value, self.value
+            ),
+
+            
         };
 
         write!(f, "{}", description)

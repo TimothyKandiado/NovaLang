@@ -121,6 +121,10 @@ pub enum RegisterValueKind {
     MemAddress,
     /// Index of object in immutables array
     ImmAddress,
+    /// Index of String in Memory
+    StrMem,
+    /// Index of String in Immutables
+    StrImm,
 
     NovaFunctionID(NovaFunctionID),
 }
